@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STEM Simulation Studio - Mô Phỏng Tương Tác Vật Lý & Toán Học</title>
+    <meta name="description" content="Nền tảng tích hợp toàn bộ các mô phỏng STEM: Chuyển động Brown (Cooking), Bước đi ngẫu nhiên (Drunk), Lan tỏa tràn dầu (Oil Spill SPDE) và Dự báo bão 3D.">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --accent-glow: rgba(99, 102, 241, 0.25);
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #070b14;
+            color: #f1f5f9;
+        }
+        .font-mono-math {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Background gradient */
+        .ambient-bg {
+            background: 
+                radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.12), transparent 45%),
+                radial-gradient(circle at 85% 20%, rgba(249, 115, 22, 0.10), transparent 45%),
+                radial-gradient(circle at 50% 85%, rgba(14, 165, 233, 0.12), transparent 50%),
+                #070b14;
+        }
+        /* Glassmorphism panels */
+        .glass-card {
+            background: rgba(15, 23, 42, 0.72);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .glass-card:hover {
+            border-color: rgba(255, 255, 255, 0.18);
+            transform: translateY(-4px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+        }
+        .glass-bar {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        /* Gradient hero text */
+        .gradient-title {
+            background: linear-gradient(135deg, #38bdf8 0%, #818cf8 35%, #f472b6 70%, #fb923c 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0b0f19; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Mobile simulator device mockup */
+        .device-mobile {
+            width: 414px;
+            max-width: 100%;
+            height: 780px;
+            border-radius: 40px;
+            border: 12px solid #1e293b;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 0 2px rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            margin: 0 auto;
+        }
+        .device-tablet {
+            width: 820px;
+            max-width: 100%;
+            height: 820px;
+            border-radius: 28px;
+            border: 10px solid #1e293b;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);
+            overflow: hidden;
+            margin: 0 auto;
+        }
+        .device-desktop {
+            width: 100%;
+            height: 100%;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+        }
+        /* Pulse dot */
+        @keyframes subtlePulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.9); }
+        }
+        .live-dot {
+            animation: subtlePulse 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col ambient-bg text-slate-100 overflow-x-hidden">
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-50 glass-bar border-b border-slate-800/80 px-4 md:px-6 py-3">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            
+            <!-- Logo & Brand -->
+            <div class="flex items-center gap-3 cursor-pointer" onclick="switchViewMode('hub')">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-sky-500 to-orange-500 flex items-center justify-center text-xl shadow-lg shadow-indigo-500/20">
+                    🌌
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-extrabold text-base md:text-lg tracking-tight text-white">STEM Studio</span>
+                        <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-[10px] px-2 py-0.5 rounded-full font-bold">GitHub Ready</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 hidden sm:block">Chuyển Động Ngẫu Nhiên • Khuếch Tán • SPDE 3D</p>
+                </div>
+            </div>
+
+            <!-- Tab Switcher Navigation -->
+            <nav class="flex items-center bg-slate-900/80 p-1 rounded-2xl border border-slate-800 text-xs overflow-x-auto max-w-full">
+                <button id="nav-hub" onclick="switchViewMode('hub')" class="nav-btn px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center gap-1.5 text-white bg-indigo-600 shadow-md">
+                    <span>🏠</span>
+                    <span>Cổng Tổng Quan</span>
+                </button>
+                <button id="nav-cooking" onclick="launchSimulation('cooking')" class="nav-btn px-3 py-1.5 rounded-xl font-medium text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5">
+                    <span>🍳</span>
+                    <span>Nước Sôi (Cooking)</span>
+                </button>
+                <button id="nav-drunk" onclick="launchSimulation('drunk')" class="nav-btn px-3 py-1.5 rounded-xl font-medium text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5">
+                    <span>🍻</span>
+                    <span>Gã Say (Drunk)</span>
+                </button>
+                <button id="nav-oil" onclick="launchSimulation('oil')" class="nav-btn px-3 py-1.5 rounded-xl font-medium text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5">
+                    <span>🛢️</span>
+                    <span>Tràn Dầu (Oil)</span>
+                </button>
+                <button id="nav-weather" onclick="launchSimulation('weather')" class="nav-btn px-3 py-1.5 rounded-xl font-medium text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5">
+                    <span>🌪️</span>
+                    <span>Bão SPDE 3D</span>
+                </button>
+            </nav>
+
+            <!-- Quick Action Badges -->
+            <div class="flex items-center gap-2">
+                <button onclick="toggleModal('githubModal')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                    <svg class="w-4 h-4 fill-current text-white" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                    <span class="hidden md:inline">Tải lên GitHub</span>
+                </button>
+
+                <button onclick="toggleModal('lanModal')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-400 border border-emerald-500/30 transition">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 live-dot"></span>
+                    <span class="hidden sm:inline">Phòng Học LAN</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN VIEWPORT CONTAINER -->
+    <div class="flex-grow flex flex-col relative w-full">
+
+        <!-- ==================== VIEW 1: HUB OVERVIEW ==================== -->
+        <main id="view-hub" class="w-full max-w-7xl mx-auto px-4 md:px-8 py-8 flex flex-col gap-10">
+            
+            <!-- Hero Header -->
+            <section class="text-center max-w-4xl mx-auto flex flex-col items-center gap-4 mt-2">
+                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-400/20 text-indigo-400 text-xs font-bold tracking-wide uppercase">
+                    ✨ Hệ Sinh Thái Tương Tác Giảng Dạy & Nghiên Cứu STEM
+                </div>
+                <h1 class="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-tight">
+                    Khám Phá <span class="gradient-title">Khuếch Tán & Ngẫu Nhiên</span> Trực Quan 3D
+                </h1>
+                <p class="text-slate-400 text-sm sm:text-base md:text-lg max-w-3xl leading-relaxed">
+                    Tập hợp đầy đủ các mô phỏng toán lý: từ bước đi ngẫu nhiên rời rạc (Random Walk), chuyển động Brown vi mô & dẫn nhiệt (Heat Transfer), đến phương trình vi phân ngẫu nhiên chất lưu (SPDE). Chạy 100% độc lập không cần cài đặt!
+                </p>
+
+                <!-- Call to action buttons -->
+                <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+                    <button onclick="launchSimulation('cooking')" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white font-bold text-sm shadow-lg shadow-orange-500/25 transition flex items-center gap-2">
+                        <span>🚀 Mở Mô Phỏng Nước Sôi</span>
+                    </button>
+                    <button onclick="launchSimulation('drunk')" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/25 transition flex items-center gap-2">
+                        <span>🍻 Gã Say Rượu 1D/2D/3D</span>
+                    </button>
+                    <button onclick="launchSimulation('oil')" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-emerald-600 hover:from-sky-500 hover:to-emerald-500 text-white font-bold text-sm shadow-lg shadow-sky-600/25 transition flex items-center gap-2">
+                        <span>🛢️ Thảm Họa Tràn Dầu</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Metrics Highlight Bar -->
+            <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="glass-card p-4 rounded-2xl text-center">
+                    <span class="text-2xl md:text-3xl font-black text-sky-400">4 Trong 1</span>
+                    <p class="text-xs text-slate-400 mt-1">Mô phỏng Khoa học Tích hợp</p>
+                </div>
+                <div class="glass-card p-4 rounded-2xl text-center">
+                    <span class="text-2xl md:text-3xl font-black text-orange-400">100% Web</span>
+                    <p class="text-xs text-slate-400 mt-1">Chạy tĩnh trực tiếp trên GitHub</p>
+                </div>
+                <div class="glass-card p-4 rounded-2xl text-center">
+                    <span class="text-2xl md:text-3xl font-black text-purple-400">Three.js 3D</span>
+                    <p class="text-xs text-slate-400 mt-1">Đồ họa vật lý tương tác thực</p>
+                </div>
+                <div class="glass-card p-4 rounded-2xl text-center">
+                    <span class="text-2xl md:text-3xl font-black text-emerald-400">Trắc Nghiệm</span>
+                    <p class="text-xs text-slate-400 mt-1">Đầy đủ câu hỏi & giải thích lý thuyết</p>
+                </div>
+            </section>
+
+            <!-- Grid 4 Simulation Cards -->
+            <section class="flex flex-col gap-6">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div>
+                        <h2 class="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                            <span>📚</span> Danh Mục Bài Học & Thí Nghiệm
+                        </h2>
+                        <p class="text-xs text-slate-400">Lựa chọn chạy trực tiếp trong Studio hoặc mở tab độc lập</p>
+                    </div>
+                    <span class="text-xs text-indigo-400 font-mono" id="path-indicator">Đường dẫn: Tự động</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <!-- CARD 1: COOKING -->
+                    <div class="glass-card p-6 rounded-3xl flex flex-col justify-between gap-5 border-l-4 border-l-orange-500 relative overflow-hidden group">
+                        <div class="absolute -top-10 -right-10 w-36 h-36 bg-orange-500/10 rounded-full blur-2xl group-hover:bg-orange-500/20 transition-all"></div>
+                        <div class="flex flex-col gap-4">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-2xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-3xl">
+                                        🍳
+                                    </div>
+                                    <div>
+                                        <span class="text-[11px] font-bold text-orange-400 uppercase tracking-wider">Nhiệt Học & Chuyển Động Hỗn Loạn</span>
+                                        <h3 class="text-xl font-bold text-white">Nước Sôi & Chuyển Động Brown (Cooking)</h3>
+                                    </div>
+                                </div>
+                                <span class="bg-orange-500/20 text-orange-300 border border-orange-500/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                                    Three.js 3D
+                                </span>
+                            </div>
+
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                Kết hợp 2 cấp độ quan sát: <b>Vĩ mô</b> (ngọn lửa bếp, hiện tượng dẫn nhiệt & đối lưu trong nồi nước) và <b>Vi mô 3D</b> (hàng ngàn phân tử H₂O va chạm liên tục và vết chuyển động Brown của các hạt màu theo định luật Einstein-Smoluchowski).
+                            </p>
+
+                            <!-- Math Formula Badge -->
+                            <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800 flex flex-col gap-1">
+                                <span class="text-[10px] text-slate-400 uppercase font-semibold">Công thức cốt lõi (Langevin & Einstein):</span>
+                                <code class="text-xs text-orange-300 font-mono-math">m · (dv/dt) = -γ v + F_fluc(t), &nbsp; D = (k_B · T) / (6πηr)</code>
+                            </div>
+
+                            <ul class="text-xs text-slate-400 space-y-1.5">
+                                <li class="flex items-center gap-2">
+                                    <span class="text-emerald-400">✓</span> Chế độ quan sát kép: Nồi nước vĩ mô & Buồng phân tử 3D
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="text-emerald-400">✓</span> Tùy biến công suất bếp đun, nhiệt độ nước và theo dõi 10 hạt màu
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="text-emerald-400">✓</span> Kèm bộ 5 câu hỏi trắc nghiệm kiểm tra nhận thức học sinh
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Action buttons -->
+                        <div class="flex flex-wrap gap-2.5 pt-4 border-t border-slate-800/80">
+                            <button onclick="launchSimulation('cooking')" class="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs text-center transition shadow-lg shadow-orange-600/30 flex items-center justify-center gap-1.5">
+                                <span>▶️ Chạy Trong Studio</span>
+                            </button>
+                            <a id="link-direct-cooking" href="./Cooking.html" target="_blank" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-orange-300 border border-orange-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition" title="Mở trong tab trình duyệt riêng biệt">
+                                <span>↗ Mở Tab Mới</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- CARD 2: DRUNK -->
+                    <div class="glass-card p-6 rounded-3xl flex flex-col justify-between gap-5 border-l-4 border-l-indigo-500 relative overflow-hidden group">
+                        <div class="absolute -top-10 -right-10 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-all"></div>
+                        <div class="flex flex-col gap-4">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-3xl">
+                                        🍻
+                                    </div>
+                                    <div>
+                                        <span class="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">Xác Suất & Khuếch Tán Rời Rạc</span>
+                                        <h3 class="text-xl font-bold text-white">Gã Say Rượu (Random Walk)</h3>
+                                    </div>
+                                </div>
+                                <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                                    Plotly & 1D/2D/3D
+                                </span>
+                            </div>
+
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                Trực quan hóa mô hình bước đi ngẫu nhiên rời rạc (Discrete Random Walk) trên 3 không gian: <b>1D</b> (con hẻm hẹp), <b>2D</b> (quảng trường), và <b>3D</b> (drone trong không trung). Minh họa sống động Định lý George Pólya và Phân bố chuẩn Gauss.
+                            </p>
+
+                            <!-- Math Formula Badge -->
+                            <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800 flex flex-col gap-1">
+                                <span class="text-[10px] text-slate-400 uppercase font-semibold">Quy luật độ dịch chuyển bình phương trung bình (MSD):</span>
+                                <code class="text-xs text-indigo-300 font-mono-math">⟨R²(N)⟩ = N · L² &nbsp; ⟹ &nbsp; R_rms = √N · L</code>
+                            </div>
+
+                            <ul class="text-xs text-slate-400 space-y-1.5">
+                                <li class="flex items-center gap-2">
+                                    <span class="text-emerald-400">✓</span> Chạy đồng thời hàng chục quỹ đạo ngẫu nhiên với tốc độ tùy biến
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="text-emerald-400">✓</span> Đồ thị phân bố tần suất Gauss và biểu đồ khoảng cách √N theo thời gian
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="text-emerald-400">✓</span> Khám phá tính hồi quy: 1D, 2D luôn về gốc, 3D xác suất chỉ ~34%
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Action buttons -->
+                        <div class="flex flex-wrap gap-2.5 pt-4 border-t border-slate-800/80">
+                            <button onclick="launchSimulation('drunk')" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs text-center transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-1.5">
+                                <span>▶️ Chạy Trong Studio</span>
+                            </button>
+                            <a id="link-direct-drunk" href="./Drunk.html" target="_blank" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition" title="Mở trong tab trình duyệt riêng biệt">
+                                <span>↗ Mở Tab Mới</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- CARD 3: OIL SPILL -->
+                    <div class="glass-card p-6 rounded-3xl flex flex-col justify-between gap-5 border-l-4 border-l-sky-500 relative overflow-hidden group">
+                        <div class="absolute -top-10 -right-10 w-36 h-36 bg-sky-500/10 rounded-full blur-2xl group-hover:bg-sky-500/20 transition-all"></div>
+                        <div class="flex flex-col gap-4">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-2xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-3xl">
+                                        🛢️
+                                    </div>
+                                    <div>
+                                        <span class="text-[11px] font-bold text-sky-400 uppercase tracking-wider">Môi Trường & Động Lực Học Chất Lưu</span>
+                                        <h3 class="text-xl font-bold text-white">Sự Cố Tràn Dầu Trên Mặt Biển (Oil Spill)</h3>
+                                    </div>
+                                </div>
+                                <span class="bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                                    SPDE Fluid 3D
+                                </span>
+                            </div>
+
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                Ứng dụng phương trình vi phân đạo hàm riêng ngẫu nhiên (SPDE) mô phỏng động lực váng dầu trôi dạt và khuếch tán trên bề mặt đại dương dưới tác động liên tục của trường gió và dòng hải lưu.
+                            </p>
+
+                            <!-- Math Formula Badge -->
+                            <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800 flex flex-col gap-1">
+                                <span class="text-[10px] text-slate-400 uppercase font-semibold">Phương trình tải - khuếch tán ngẫu nhiên (Advection-Diffusion SPDE):</span>
+                                <code class="text-xs text-sky-300 font-mono-math">∂C/∂t + u · ∇C = D ∇²C + σ ξ(x,t)</code>
+                            </div>
+
+                            <ul class="text-xs text-slate-400 space-y-1.5">
+                                <li class="flex items-center gap-2">
+                                    <span class="text-emerald-400">✓</span> Mặt biển lượn sóng 3D với góc nhìn OrbitControls xoay tự do
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="text-emerald-400">✓</span> Điều khiển hướng và tốc độ gió, độ khuếch tán phân tử và rò rỉ dầu
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="text-emerald-400">✓</span> Đặt phao quây chặn dầu (Containment Booms) cứu hộ môi trường
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Action buttons -->
+                        <div class="flex flex-wrap gap-2.5 pt-4 border-t border-slate-800/80">
+                            <button onclick="launchSimulation('oil')" class="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs text-center transition shadow-lg shadow-sky-600/30 flex items-center justify-center gap-1.5">
+                                <span>▶️ Chạy Trong Studio</span>
+                            </button>
+                            <a id="link-direct-oil" href="./Oil.html" target="_blank" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition" title="Mở trong tab trình duyệt riêng biệt">
+                                <span>↗ Mở Tab Mới</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- CARD 4: WEATHER FORECAST (SPDE 3D) -->
+                    <div class="glass-card p-6 rounded-3xl flex flex-col justify-between gap-5 border-l-4 border-l-cyan-500 relative overflow-hidden group">
+                        <div class="absolute -top-10 -right-10 w-36 h-36 bg-cyan-500/10 rounded-full blur-2xl group-hover:bg-cyan-500/20 transition-all"></div>
+                        <div class="flex flex-col gap-4">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-3xl">
+                                        🌪️
+                                    </div>
+                                    <div>
+                                        <span class="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">Khí Quyển & Quả Địa Cầu Globe.gl</span>
+                                        <h3 class="text-xl font-bold text-white">Mô Phỏng Dự Báo Siêu Bão SPDE 3D</h3>
+                                    </div>
+                                </div>
+                                <span class="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                                    Globe.gl Sphere
+                                </span>
+                            </div>
+
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                Khám phá hiện tượng xoáy xoáy bão khí quyển (Atmospheric Vortex) và hiệu ứng lực Coriolis trên quả địa cầu 3D tương tác. Mô hình giải phương trình vi phân ngẫu nhiên cho trường xoáy áp suất.
+                            </p>
+
+                            <!-- Math Formula Badge -->
+                            <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800 flex flex-col gap-1">
+                                <span class="text-[10px] text-slate-400 uppercase font-semibold">Phương trình trường xoáy ngẫu nhiên (Stochastic Vorticity):</span>
+                                <code class="text-xs text-cyan-300 font-mono-math">∂ω/∂t + (v · ∇)ω = ν ∇²ω + f · (∇ × F_rand)</code>
+                            </div>
+
+                            <ul class="text-xs text-slate-400 space-y-1.5">
+                                <li class="flex items-center gap-2">
+                                    <span class="text-emerald-400">✓</span> Quả địa cầu Trái Đất 3D phóng to, thu nhỏ và xoay 360 độ mượt mà
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="text-emerald-400">✓</span> Tự tạo tâm bão tại bất kỳ tọa độ địa lý nào trên đại dương
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="text-emerald-400">✓</span> Khảo sát quỹ đạo bão di chuyển dưới trường gió ngẫu nhiên
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Action buttons -->
+                        <div class="flex flex-wrap gap-2.5 pt-4 border-t border-slate-800/80">
+                            <button onclick="launchSimulation('weather')" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs text-center transition shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-1.5">
+                                <span>▶️ Chạy Trong Studio</span>
+                            </button>
+                            <a id="link-direct-weather" href="./WeatherForecast.html" target="_blank" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition" title="Mở trong tab trình duyệt riêng biệt">
+                                <span>↗ Mở Tab Mới</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Theoretical Synthesis Section -->
+            <section class="glass-card p-6 md:p-8 rounded-3xl flex flex-col gap-5 border border-indigo-500/30 bg-gradient-to-br from-slate-900 via-indigo-950/30 to-slate-900">
+                <div class="flex items-center gap-3">
+                    <span class="text-3xl">🧩</span>
+                    <div>
+                        <h3 class="text-lg md:text-xl font-bold text-white">Sợi Dây Liên Kết Toán - Lý Của Chuỗi Mô Phỏng STEM</h3>
+                        <p class="text-xs text-indigo-300">Từ hạt rời rạc vi mô đến phương trình trường liên tục vĩ mô</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800">
+                        <b class="text-indigo-400 text-sm block mb-1.5">1. Mô Hình Rời Rạc (Drunk Walk)</b>
+                        <p class="text-slate-300 leading-relaxed mb-2">
+                            Tại mỗi bước thời gian $\Delta t$, hạt bước ngẫu nhiên $\Delta x = \pm L$. Khoảng cách trung bình từ gốc không tỷ lệ với thời gian $t$, mà tỷ lệ với căn bậc hai $\sqrt{t}$.
+                        </p>
+                        <span class="text-indigo-300 font-mono-math block bg-slate-950 p-2 rounded">R_rms = L · √(t / Δt)</span>
+                    </div>
+
+                    <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800">
+                        <b class="text-orange-400 text-sm block mb-1.5">2. Chuyển Động Brown (Cooking)</b>
+                        <p class="text-slate-300 leading-relaxed mb-2">
+                            Khi số hạt và tần số va chạm tiến tới vô cùng ($\Delta t \to 0, L \to 0$), bước đi ngẫu nhiên trở thành chuyển động Brown liên tục với hệ số khuếch tán Einstein $D = L^2 / (2\Delta t)$.
+                        </p>
+                        <span class="text-orange-300 font-mono-math block bg-slate-950 p-2 rounded">∂P/∂t = D · ∇²P</span>
+                    </div>
+
+                    <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800">
+                        <b class="text-sky-400 text-sm block mb-1.5">3. Trường Ngẫu Nhiên SPDE (Oil & Weather)</b>
+                        <p class="text-slate-300 leading-relaxed mb-2">
+                            Mở rộng sang chất lưu thực tế: nồng độ chất tan $C(\mathbf{x}, t)$ vừa bị dòng chảy cuốn trôi (Advection $\mathbf{u} \cdot \nabla C$), vừa khuếch tán bề mặt ($D\nabla^2 C$), vừa chịu nhiễu trắng ngẫu nhiên $\sigma \xi$.
+                        </p>
+                        <span class="text-sky-300 font-mono-math block bg-slate-950 p-2 rounded">∂C/∂t = -u·∇C + D∇²C + σξ</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- ==================== VIEW 2: INTERACTIVE SIMULATION STUDIO ==================== -->
+        <div id="view-studio" class="hidden flex-grow flex flex-col w-full h-[calc(100vh-65px)] bg-slate-950">
+            
+            <!-- Studio Toolbar -->
+            <div class="glass-bar px-4 py-2 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800">
+                
+                <!-- Left: Simulation Identity -->
+                <div class="flex items-center gap-3">
+                    <button onclick="switchViewMode('hub')" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1 transition">
+                        <span>← Quay Lại</span>
+                    </button>
+                    
+                    <div class="h-5 w-px bg-slate-800"></div>
+
+                    <div class="flex items-center gap-2">
+                        <span id="studio-icon" class="text-2xl">🍳</span>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h2 id="studio-title" class="font-bold text-sm md:text-base text-white">Nồi Nước Sôi & Chuyển Động Brown</h2>
+                                <span id="studio-badge" class="bg-orange-500/20 text-orange-300 border border-orange-500/30 text-[10px] px-2 py-0.5 rounded-full font-semibold">Three.js 3D</span>
+                            </div>
+                            <p id="studio-tag" class="text-[11px] text-slate-400 hidden sm:block">Nhiệt học & Thuyết Động học Phân tử</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Simulation Controls & Viewport Switcher -->
+                <div class="flex items-center gap-2">
+                    
+                    <!-- Viewport switcher buttons -->
+                    <div class="hidden md:flex items-center bg-slate-900 rounded-xl p-0.5 border border-slate-800 text-xs">
+                        <button onclick="setStudioDevice('desktop')" id="dev-desktop" class="px-2.5 py-1 rounded-lg text-white bg-indigo-600 font-medium transition" title="Xem dạng máy tính để bàn (100% màn hình)">
+                            🖥️ Màn hình rộng
+                        </button>
+                        <button onclick="setStudioDevice('tablet')" id="dev-tablet" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition" title="Xem giả lập máy tính bảng iPad/Tablet">
+                            💻 Tablet
+                        </button>
+                        <button onclick="setStudioDevice('mobile')" id="dev-mobile" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition" title="Xem giả lập màn hình điện thoại học sinh">
+                            📱 Điện thoại
+                        </button>
+                    </div>
+
+                    <div class="h-5 w-px bg-slate-800 hidden md:block"></div>
+
+                    <!-- Reload button -->
+                    <button onclick="reloadActiveSimulation()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition text-xs font-semibold flex items-center gap-1.5" title="Tải lại mô phỏng này">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        <span class="hidden sm:inline">Làm Mới</span>
+                    </button>
+
+                    <!-- Open in external tab button -->
+                    <a id="studio-open-external" href="#" target="_blank" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition text-xs font-semibold flex items-center gap-1.5" title="Mở mô phỏng trong tab mới hoàn toàn">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                        <span class="hidden sm:inline">Mở Tab Riêng</span>
+                    </a>
+
+                    <!-- Fullscreen button -->
+                    <button onclick="toggleStudioFullscreen()" class="p-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition text-xs font-semibold flex items-center gap-1.5 shadow" title="Phóng to toàn màn hình để chiếu giảng dạy">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+                        <span class="hidden sm:inline">Toàn Màn Hình</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stage & Iframe Canvas Area -->
+            <div id="studio-stage" class="flex-grow relative w-full h-full p-2 md:p-3 overflow-hidden flex items-center justify-center bg-slate-950">
+                
+                <!-- Loading indicator overlay -->
+                <div id="studio-loading" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm transition-opacity duration-300 pointer-events-none">
+                    <div class="w-12 h-12 rounded-full border-4 border-indigo-500/20 border-t-indigo-500 animate-spin mb-3"></div>
+                    <span class="text-xs text-slate-300 font-medium">Đang khởi tạo môi trường mô phỏng 3D...</span>
+                </div>
+
+                <!-- Simulation iframe -->
+                <div id="device-wrapper" class="device-desktop relative transition-all duration-300">
+                    <iframe 
+                        id="simulation-frame" 
+                        src="about:blank" 
+                        class="w-full h-full border-0 bg-slate-900"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                        onload="onFrameLoaded()"
+                    ></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== FOOTER ==================== -->
+    <footer class="glass-bar border-t border-slate-800/80 py-4 px-4 md:px-8 text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <span>STEM Diffusion & Stochastic Dynamics</span>
+                <span>•</span>
+                <span class="text-slate-400">Đại học Sư phạm & Hội thảo Giảng dạy STEM</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="toggleModal('githubModal')" class="hover:text-indigo-400 transition">Cách Deploy GitHub Pages</button>
+                <button onclick="toggleModal('lanModal')" class="hover:text-emerald-400 transition">Chế độ Phòng Học LAN</button>
+                <button onclick="forceSwitchBasePath()" class="hover:text-amber-400 transition" title="Đổi thư mục nạp mô phỏng giữa ./ và ./Split/">
+                    Chuyển Path: <code id="active-path-label" class="text-cyan-400">./</code>
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ==================== MODAL 1: GITHUB PAGES DEPLOYMENT GUIDE ==================== -->
+    <div id="githubModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="glass-card max-w-2xl w-full p-6 md:p-8 rounded-3xl border border-indigo-500/30 flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-start justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-xl">
+                        🚀
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Cách Đưa Toàn Bộ Mô Phỏng Lên GitHub Pages</h3>
+                        <p class="text-xs text-slate-400">Mã nguồn chạy 100% tĩnh không cần máy chủ (Zero Backend Required)</p>
+                    </div>
+                </div>
+                <button onclick="toggleModal('githubModal')" class="text-slate-400 hover:text-white text-lg p-1">✕</button>
+            </div>
+
+            <div class="text-xs text-slate-300 space-y-3.5 leading-relaxed">
+                <div class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800">
+                    <b class="text-indigo-400 block mb-1">Bước 1: Tải các tệp lên GitHub</b>
+                    Bạn chỉ cần tải thư mục này (chứa tệp <code class="text-cyan-300">index.html</code>, <code class="text-cyan-300">Cooking.html</code>, <code class="text-cyan-300">Drunk.html</code>, <code class="text-cyan-300">Oil.html</code>, <code class="text-cyan-300">WeatherForecast.html</code>) lên Repository của bạn trên GitHub.
+                </div>
+
+                <div class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800">
+                    <b class="text-purple-400 block mb-1">Bước 2: Bật tính năng GitHub Pages</b>
+                    1. Truy cập vào kho chứa (Repository) trên GitHub.<br>
+                    2. Nhấp vào tab <b>Settings</b> &gt; chọn mục <b>Pages</b> ở cột bên trái.<br>
+                    3. Ở mục <b>Build and deployment</b> &gt; <b>Branch</b>: Chọn nhánh <code class="text-cyan-300">main</code> (hoặc <code class="text-cyan-300">master</code>), thư mục <code class="text-cyan-300">/(root)</code>.<br>
+                    4. Nhấn <b>Save</b>.
+                </div>
+
+                <div class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800">
+                    <b class="text-emerald-400 block mb-1">Bước 3: Nhận đường link và chia sẻ</b>
+                    Sau khoảng 30 giây đến 1 phút, GitHub sẽ cấp cho bạn một đường link miễn phí dạng:<br>
+                    <code class="text-emerald-300 font-bold block mt-1.5 p-2 bg-slate-950 rounded">https://&lt;ten-tai-khoan&gt;.github.io/&lt;ten-repo&gt;/</code>
+                    Học sinh, đồng nghiệp hay bất kỳ ai có link đều có thể mở và tương tác ngay trên máy tính hoặc điện thoại mà không cần cài đặt bất cứ phần mềm nào!
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button onclick="toggleModal('githubModal')" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition">
+                    Đã Hiểu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL 2: LOCAL LAN CLASSROOM GUIDE ==================== -->
+    <div id="lanModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="glass-card max-w-2xl w-full p-6 md:p-8 rounded-3xl border border-emerald-500/30 flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-start justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-emerald-600/30 border border-emerald-500/40 flex items-center justify-center text-xl">
+                        👨‍🏫
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Chế Độ Giảng Dạy Trực Tiếp Qua Mạng LAN</h3>
+                        <p class="text-xs text-slate-400">Khảo sát ý kiến học sinh qua mã QR & Đồng bộ thời gian thực</p>
+                    </div>
+                </div>
+                <button onclick="toggleModal('lanModal')" class="text-slate-400 hover:text-white text-lg p-1">✕</button>
+            </div>
+
+            <div class="text-xs text-slate-300 space-y-3.5 leading-relaxed">
+                <p>
+                    Khi Thầy/Cô đứng lớp và muốn học sinh dùng điện thoại nộp bài trắc nghiệm dự đoán, hệ thống đã chuẩn bị sẵn máy chủ Python WebSocket:
+                </p>
+
+                <div class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800">
+                    <b class="text-emerald-400 block mb-1">Cách khởi động máy chủ trên máy tính Giáo viên:</b>
+                    Mở PowerShell hoặc Command Prompt tại thư mục dự án và chạy:
+                    <code class="text-cyan-300 font-mono-math block mt-1.5 p-2 bg-slate-950 rounded">python run_classroom.py</code>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="bg-slate-900/90 p-3.5 rounded-2xl border border-slate-800">
+                        <b class="text-orange-400 block mb-1">Mô phỏng Nồi Nước Sôi (Cooking):</b>
+                        • Dashboard Giáo viên: <code class="text-cyan-300">teacher_cooking.html</code><br>
+                        • Màn hình Học sinh: <code class="text-cyan-300">student_cooking.html</code>
+                    </div>
+                    <div class="bg-slate-900/90 p-3.5 rounded-2xl border border-slate-800">
+                        <b class="text-indigo-400 block mb-1">Mô phỏng Gã Say Rượu (Drunk):</b>
+                        • Dashboard Giáo viên: <code class="text-cyan-300">teacher_drunk.html</code><br>
+                        • Màn hình Học sinh: <code class="text-cyan-300">student_drunk.html</code>
+                    </div>
+                </div>
+
+                <p class="text-slate-400 italic">
+                    * Lưu ý: Chế độ khảo sát LAN yêu cầu máy chủ Python chạy nội bộ. Khi đăng lên GitHub Pages, tất cả các mô phỏng sẽ chạy ở <b>Chế độ Độc lập (Standalone)</b> rất mượt mà.
+                </p>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button onclick="toggleModal('lanModal')" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition">
+                    Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== JAVASCRIPT LOGIC ==================== -->
+    <script>
+        // Cấu hình các mô phỏng
+        const SIMULATIONS = {
+            cooking: {
+                id: 'cooking',
+                title: 'Nước Sôi & Chuyển Động Brown',
+                icon: '🍳',
+                file: 'Cooking.html',
+                badge: 'Three.js 3D & Dẫn nhiệt',
+                badgeClass: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
+                tag: 'Nhiệt học & Thuyết Động học Phân tử'
+            },
+            drunk: {
+                id: 'drunk',
+                title: 'Gã Say Rượu (Random Walk)',
+                icon: '🍻',
+                file: 'Drunk.html',
+                badge: 'Plotly & 1D/2D/3D',
+                badgeClass: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+                tag: 'Toán học & Xác suất thống kê'
+            },
+            oil: {
+                id: 'oil',
+                title: 'Sự Cố Tràn Dầu Trên Mặt Biển',
+                icon: '🛢️',
+                file: 'Oil.html',
+                badge: 'Three.js SPDE Fluid',
+                badgeClass: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
+                tag: 'Môi trường & Động lực chất lưu SPDE'
+            },
+            weather: {
+                id: 'weather',
+                title: 'Dự Báo Siêu Bão SPDE 3D',
+                icon: '🌪️',
+                file: 'WeatherForecast.html',
+                badge: 'Globe.gl Sphere 3D',
+                badgeClass: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+                tag: 'Khí quyển & Xoáy bão Trái Đất 3D'
+            }
+        };
+
+        let currentActiveSimId = null;
+        let currentBasePath = './'; // Mặc định tệp cùng thư mục
+
+        // Tự động nhận diện đường dẫn (Smart Path Detection)
+        async function autoDetectBasePath() {
+            // 1. Kiểm tra nếu đang chạy qua HTTP/HTTPS (GitHub Pages hoặc Web Server)
+            if (window.location.protocol.startsWith('http')) {
+                try {
+                    const res = await fetch('./Cooking.html', { method: 'HEAD' });
+                    if (res.ok) {
+                        setBasePath('./');
+                        return;
+                    }
+                } catch(e) {}
+
+                try {
+                    const resSplit = await fetch('./Split/Cooking.html', { method: 'HEAD' });
+                    if (resSplit.ok) {
+                        setBasePath('./Split/');
+                        return;
+                    }
+                } catch(e) {}
+            }
+
+            // 2. Dự phòng qua pathname (cho file:/// hoặc URL tĩnh)
+            const pathName = window.location.pathname.toLowerCase().replace(/\\/g, '/');
+            if (pathName.includes('/split/')) {
+                setBasePath('./');
+            } else {
+                setBasePath('./Split/');
+            }
+        }
+
+        function setBasePath(path) {
+            currentBasePath = path;
+            const label = document.getElementById('active-path-label');
+            const ind = document.getElementById('path-indicator');
+            if (label) label.innerText = path;
+            if (ind) ind.innerText = 'Đường dẫn tệp: ' + path;
+
+            // Cập nhật các thẻ liên kết mở trực tiếp (direct links)
+            Object.keys(SIMULATIONS).forEach(simId => {
+                const link = document.getElementById(`link-direct-${simId}`);
+                if (link) {
+                    link.href = currentBasePath + SIMULATIONS[simId].file;
+                }
+            });
+
+            // Nếu đang trong Studio, cập nhật lại link mở tab riêng
+            if (currentActiveSimId) {
+                const ext = document.getElementById('studio-open-external');
+                if (ext) ext.href = currentBasePath + SIMULATIONS[currentActiveSimId].file;
+            }
+        }
+
+        function forceSwitchBasePath() {
+            if (currentBasePath === './') {
+                setBasePath('./Split/');
+            } else {
+                setBasePath('./');
+            }
+            if (currentActiveSimId) {
+                launchSimulation(currentActiveSimId);
+            }
+        }
+
+        // Chuyển đổi giữa chế độ Cổng Tổng Quan (Hub) và Studio Mô Phỏng
+        function switchViewMode(mode) {
+            const hubView = document.getElementById('view-hub');
+            const studioView = document.getElementById('view-studio');
+            const navBtns = document.querySelectorAll('.nav-btn');
+
+            navBtns.forEach(btn => {
+                btn.className = 'nav-btn px-3 py-1.5 rounded-xl font-medium text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5';
+            });
+
+            if (mode === 'hub') {
+                hubView.classList.remove('hidden');
+                studioView.classList.add('hidden');
+                document.getElementById('nav-hub').className = 'nav-btn px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center gap-1.5 text-white bg-indigo-600 shadow-md';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                hubView.classList.add('hidden');
+                studioView.classList.remove('hidden');
+                const activeNav = document.getElementById(`nav-${mode}`);
+                if (activeNav) {
+                    activeNav.className = 'nav-btn px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center gap-1.5 text-white bg-indigo-600 shadow-md';
+                }
+            }
+        }
+
+        // Khởi chạy một mô phỏng trong Studio
+        function launchSimulation(simId) {
+            const sim = SIMULATIONS[simId];
+            if (!sim) return;
+
+            currentActiveSimId = simId;
+            switchViewMode(simId);
+
+            // Cập nhật thông tin trên thanh công cụ Studio
+            document.getElementById('studio-icon').innerText = sim.icon;
+            document.getElementById('studio-title').innerText = sim.title;
+            document.getElementById('studio-tag').innerText = sim.tag;
+            
+            const badge = document.getElementById('studio-badge');
+            badge.innerText = sim.badge;
+            badge.className = `border text-[10px] px-2 py-0.5 rounded-full font-semibold ${sim.badgeClass}`;
+
+            const externalLink = document.getElementById('studio-open-external');
+            externalLink.href = currentBasePath + sim.file;
+
+            // Hiện loader và nạp iframe
+            const loader = document.getElementById('studio-loading');
+            loader.style.opacity = '1';
+            loader.style.pointerEvents = 'auto';
+
+            const frame = document.getElementById('simulation-frame');
+            const targetUrl = currentBasePath + sim.file;
+            
+            // Chỉ cập nhật nếu URL thay đổi để tránh tải lại không cần thiết
+            if (frame.src !== targetUrl && !frame.src.endsWith(targetUrl)) {
+                frame.src = targetUrl;
+            } else {
+                // Đã tải sẵn thì ẩn loader
+                setTimeout(() => {
+                    loader.style.opacity = '0';
+                    loader.style.pointerEvents = 'none';
+                }, 300);
+            }
+        }
+
+        function onFrameLoaded() {
+            const loader = document.getElementById('studio-loading');
+            if (loader) {
+                setTimeout(() => {
+                    loader.style.opacity = '0';
+                    loader.style.pointerEvents = 'none';
+                }, 400);
+            }
+        }
+
+        function reloadActiveSimulation() {
+            const frame = document.getElementById('simulation-frame');
+            const loader = document.getElementById('studio-loading');
+            if (loader) {
+                loader.style.opacity = '1';
+                loader.style.pointerEvents = 'auto';
+            }
+            if (frame) {
+                frame.src = frame.src;
+            }
+        }
+
+        // Đổi chế độ thiết bị giả lập (Device Switcher)
+        function setStudioDevice(dev) {
+            const wrapper = document.getElementById('device-wrapper');
+            const btnDesk = document.getElementById('dev-desktop');
+            const btnTab = document.getElementById('dev-tablet');
+            const btnMob = document.getElementById('dev-mobile');
+
+            [btnDesk, btnTab, btnMob].forEach(b => {
+                b.className = 'px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition';
+            });
+
+            wrapper.className = '';
+            if (dev === 'desktop') {
+                wrapper.className = 'device-desktop relative transition-all duration-300';
+                btnDesk.className = 'px-2.5 py-1 rounded-lg text-white bg-indigo-600 font-medium transition';
+            } else if (dev === 'tablet') {
+                wrapper.className = 'device-tablet relative transition-all duration-300';
+                btnTab.className = 'px-2.5 py-1 rounded-lg text-white bg-indigo-600 font-medium transition';
+            } else if (dev === 'mobile') {
+                wrapper.className = 'device-mobile relative transition-all duration-300';
+                btnMob.className = 'px-2.5 py-1 rounded-lg text-white bg-indigo-600 font-medium transition';
+            }
+        }
+
+        // Toàn màn hình (Fullscreen API)
+        function toggleStudioFullscreen() {
+            const stage = document.getElementById('studio-stage');
+            if (!document.fullscreenElement) {
+                if (stage.requestFullscreen) {
+                    stage.requestFullscreen();
+                } else if (stage.webkitRequestFullscreen) {
+                    stage.webkitRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        // Đóng/Mở Modal
+        function toggleModal(id) {
+            const modal = document.getElementById(id);
+            if (!modal) return;
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        // Tự động kiểm tra URL hash để nhảy vào mô phỏng tương ứng
+        // Ví dụ: #cooking hoặc #drunk hoặc #oil
+        function checkUrlHash() {
+            const hash = window.location.hash.replace('#', '').toLowerCase();
+            if (SIMULATIONS[hash]) {
+                launchSimulation(hash);
+            }
+        }
+
+        // Khởi động khi tải xong trang
+        window.addEventListener('DOMContentLoaded', async () => {
+            await autoDetectBasePath();
+            checkUrlHash();
+        });
+
+        window.addEventListener('hashchange', checkUrlHash);
+    </script>
+</body>
+</html>

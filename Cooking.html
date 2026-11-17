@@ -1,0 +1,2271 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mô Phỏng Chuyển Động Brown </title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #0b0f19;
+            color: #f8fafc;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: rgba(15, 23, 42, 0.9);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 1.25rem;
+            color: #38bdf8;
+            letter-spacing: 0.5px;
+        }
+
+        .container {
+            flex: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* MÀN HÌNH MACRO (NỒI ĐUN NƯỚC) */
+        #macro-view {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at center, #1e293b 0%, #0b0f19 100%);
+            transition: opacity 0.5s ease;
+        }
+
+        .stove-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .pot {
+            position: relative;
+            width: 320px;
+            height: 200px;
+            background: linear-gradient(90deg, #64748b, #94a3b8, #64748b);
+            border-bottom-left-radius: 40px;
+            border-bottom-right-radius: 40px;
+            border-top: 5px solid #475569;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            overflow: hidden;
+        }
+
+        .pot-handle-left,
+        .pot-handle-right {
+            position: absolute;
+            top: 40px;
+            width: 40px;
+            height: 25px;
+            border: 6px solid #64748b;
+            border-radius: 10px;
+        }
+
+        .pot-handle-left {
+            left: -42px;
+            border-right: none;
+        }
+
+        .pot-handle-right {
+            right: -42px;
+            border-left: none;
+        }
+
+        .water {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 150px;
+            background: rgba(14, 165, 233, 0.35);
+            backdrop-filter: blur(2px);
+            transition: background 0.3s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .water:hover {
+            background: rgba(14, 165, 233, 0.5);
+        }
+
+        .water-text {
+            font-weight: bold;
+            font-size: 1.1rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+        }
+
+        .stove {
+            width: 280px;
+            height: 30px;
+            background: #334155;
+            border-radius: 15px;
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        .fire {
+            position: absolute;
+            bottom: 30px;
+            width: 200px;
+            height: 40px;
+            display: flex;
+            justify-content: space-around;
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .fire.active {
+            opacity: 1;
+        }
+
+        .flame {
+            width: 25px;
+            height: 40px;
+            background: linear-gradient(to top, #f97316, #eab308);
+            border-radius: 50% 50% 20% 20%;
+            animation: flicker 0.4s infinite alternate;
+        }
+
+        .flame:nth-child(2) {
+            animation-delay: 0.15s;
+            height: 50px;
+        }
+
+        .flame:nth-child(3) {
+            animation-delay: 0.3s;
+            height: 35px;
+        }
+
+        @keyframes flicker {
+            0% {
+                transform: scaleY(0.9) skewX(-2deg);
+                background: #ef4444;
+            }
+
+            100% {
+                transform: scaleY(1.1) skewX(2deg);
+                background: #facc15;
+            }
+        }
+
+        /* MÀN HÌNH 3D MICRO */
+        #micro-view {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: none;
+            background: #0b0f19;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* BẢNG ĐIỀU KHIỂN & GIAO DIỆN PHỤ */
+        .controls-panel {
+            --panel-translate-x: 0px;
+            --panel-scale: 1;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 330px;
+            background: rgba(15, 23, 42, 0.90);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 14px;
+            padding: 0;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 1px rgba(56, 189, 248, 0.25);
+            z-index: 25;
+            display: none;
+            transform-origin: top right;
+            transform: scale(var(--panel-scale)) translateX(var(--panel-translate-x));
+            transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+            overflow: visible; /* Cho phép tab trượt nhô ra bên trái */
+        }
+
+        .controls-panel.collapsed {
+            --panel-translate-x: calc(100% + 20px);
+            box-shadow: none;
+        }
+
+        .controls-panel.pinned {
+            border-color: rgba(56, 189, 248, 0.45);
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.65), 0 0 15px rgba(14, 165, 233, 0.3);
+        }
+
+        /* Thẻ tab kéo bên mép trái của bảng */
+        .panel-peek-tab {
+            position: absolute;
+            left: -42px;
+            top: 25px;
+            width: 42px;
+            padding: 12px 4px;
+            background: rgba(15, 23, 42, 0.94);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            border-right: none;
+            border-radius: 10px 0 0 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            cursor: pointer;
+            box-shadow: -6px 4px 18px rgba(0, 0, 0, 0.45);
+            transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s;
+            user-select: none;
+            z-index: 26;
+        }
+
+        .panel-peek-tab:hover {
+            background: rgba(30, 41, 59, 0.98);
+            border-color: #38bdf8;
+            box-shadow: -8px 4px 22px rgba(14, 165, 233, 0.35);
+        }
+
+        .peek-tab-icon {
+            font-size: 1.05rem;
+            line-height: 1;
+            filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.5));
+            animation: spinSlow 12s linear infinite;
+        }
+
+        @keyframes spinSlow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .peek-tab-label {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: #38bdf8;
+            text-transform: uppercase;
+        }
+
+        .peek-tab-arrow {
+            font-size: 0.7rem;
+            color: #94a3b8;
+            transition: transform 0.3s ease;
+        }
+
+        .controls-panel.collapsed .peek-tab-arrow {
+            transform: rotate(0deg);
+            color: #38bdf8;
+        }
+
+        .controls-panel:not(.collapsed) .peek-tab-arrow {
+            transform: rotate(180deg);
+        }
+
+        .controls-panel-inner {
+            padding: 18px 20px 20px;
+            max-height: 88vh;
+            overflow-y: auto;
+            border-radius: 14px;
+        }
+
+        .controls-panel-inner::-webkit-scrollbar {
+            width: 6px;
+        }
+        .controls-panel-inner::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        .panel-header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 8px;
+        }
+
+        .panel-header-row h3 {
+            font-size: 1rem;
+            color: #38bdf8;
+            margin: 0;
+            padding: 0;
+            border-bottom: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .panel-header-tools {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-icon-panel {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #cbd5e1;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            padding: 0;
+        }
+
+        .btn-icon-panel:hover {
+            background: rgba(255, 255, 255, 0.18);
+            color: #f8fafc;
+            border-color: rgba(56, 189, 248, 0.4);
+        }
+
+        .btn-icon-panel.active {
+            background: rgba(14, 165, 233, 0.25);
+            border-color: #38bdf8;
+            color: #38bdf8;
+        }
+
+        .panel-hint-bar {
+            font-size: 0.73rem;
+            color: #94a3b8;
+            background: rgba(0, 0, 0, 0.28);
+            padding: 5px 8px;
+            border-radius: 5px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .hint-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 6px #10b981;
+            flex-shrink: 0;
+        }
+
+        .control-item {
+            margin-bottom: 12px;
+        }
+
+        .control-item label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+            color: #cbd5e1;
+        }
+
+        .control-item input[type="range"] {
+            width: 100%;
+            accent-color: #38bdf8;
+            cursor: pointer;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 8px;
+        }
+
+        .btn-primary {
+            background: #0ea5e9;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0284c7;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-secondary {
+            background: #475569;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #334155;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 20;
+            display: none;
+            padding: 10px 18px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .back-btn:hover {
+            background: rgba(30, 41, 59, 0.95);
+        }
+
+        .macro-controls {
+            margin-top: 25px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .legend {
+            margin-top: 10px;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            line-height: 1.4;
+        }
+
+        /* Responsive Controls Panel */
+        @media (max-width: 900px) {
+            .controls-panel {
+                --panel-scale: 0.8;
+                top: 50px;
+                right: 10px;
+            }
+        }
+        @media (max-width: 500px) {
+            .controls-panel {
+                --panel-scale: 0.65;
+            }
+            .back-btn {
+                transform: scale(0.8);
+                transform-origin: top left;
+            }
+        }
+
+        /* --- HEADER NAVIGATION TABS --- */
+        .header-nav {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .tab-nav-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #94a3b8;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-nav-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #f8fafc;
+        }
+
+        .tab-nav-btn.active {
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+            color: white;
+            border-color: #38bdf8;
+            box-shadow: 0 0 15px rgba(14, 165, 233, 0.4);
+        }
+
+        .tab-counter {
+            background: rgba(0, 0, 0, 0.35);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            color: #fde047;
+            font-weight: bold;
+        }
+
+        /* --- BANNER DỰ ĐOÁN Ở MÀN HÌNH VĨ MÔ --- */
+        .pre-quiz-banner {
+            max-width: 520px;
+            margin-bottom: 25px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 12px;
+            padding: 12px 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.25s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .pre-quiz-banner:hover {
+            transform: translateY(-2px);
+            border-color: #38bdf8;
+            box-shadow: 0 6px 20px rgba(14, 165, 233, 0.25);
+        }
+
+        .pre-quiz-banner .banner-icon {
+            font-size: 1.6rem;
+        }
+
+        .pre-quiz-banner .banner-text {
+            flex: 1;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            line-height: 1.4;
+        }
+
+        .pre-quiz-banner .banner-text b {
+            color: #38bdf8;
+        }
+
+        /* --- THƯỚC ĐO LAN TỎA NHIỆT ĐỘ (THERMAL GRADIENT PANEL) --- */
+        .thermal-gradient-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+        }
+
+        .thermal-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin: 4px 0;
+        }
+
+        .thermal-badge {
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 0.78rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .thermal-badge.hot {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .thermal-badge.cool {
+            background: rgba(56, 189, 248, 0.2);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+
+        .thermal-bar-container {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 4px;
+            margin: 6px 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .thermal-bar-fill {
+            height: 100%;
+            width: 2%;
+            background: linear-gradient(90deg, #38bdf8, #f59e0b, #ef4444);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        /* --- GIAO DIỆN PHIẾU DỰ ĐOÁN (QUIZ VIEW) --- */
+        #quiz-view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            overflow-y: auto;
+            padding: 30px 20px 80px;
+            background: radial-gradient(circle at center top, #1e293b 0%, #0b0f19 100%);
+            z-index: 15;
+        }
+
+        .quiz-content-wrapper {
+            max-width: 860px;
+            margin: 0 auto;
+        }
+
+        .quiz-header {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            padding: 22px 26px;
+            margin-bottom: 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+        }
+
+        .quiz-title-box h2 {
+            font-size: 1.25rem;
+            color: #38bdf8;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .quiz-subtitle {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            line-height: 1.4;
+        }
+
+        .quiz-progress-box {
+            text-align: right;
+            min-width: 160px;
+        }
+
+        .quiz-progress-text {
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .progress-track {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #0ea5e9, #10b981);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .quiz-score-banner {
+            border-radius: 12px;
+            padding: 18px 24px;
+            margin-bottom: 22px;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            display: none;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .quiz-card {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 22px 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .quiz-card:hover {
+            border-color: rgba(56, 189, 248, 0.3);
+        }
+
+        .quiz-card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .quiz-card-badge {
+            background: rgba(14, 165, 233, 0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .quiz-question-text {
+            font-size: 1rem;
+            color: #f8fafc;
+            line-height: 1.5;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .quiz-options-group {
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+            margin-bottom: 15px;
+        }
+
+        .quiz-option-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            color: #cbd5e1;
+            line-height: 1.4;
+        }
+
+        .quiz-option-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(56, 189, 248, 0.35);
+            color: #f8fafc;
+        }
+
+        .quiz-option-item.selected {
+            background: rgba(14, 165, 233, 0.18);
+            border-color: #38bdf8;
+            color: #f8fafc;
+            box-shadow: 0 0 12px rgba(14, 165, 233, 0.25);
+        }
+
+        .quiz-option-item.correct {
+            background: rgba(16, 185, 129, 0.2) !important;
+            border-color: #10b981 !important;
+            color: #6ee7b7 !important;
+            font-weight: 600;
+        }
+
+        .quiz-option-item.incorrect {
+            background: rgba(239, 68, 68, 0.2) !important;
+            border-color: #ef4444 !important;
+            color: #fca5a5 !important;
+            text-decoration: line-through;
+        }
+
+        .opt-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+            margin-top: 1px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .quiz-option-item.selected .opt-indicator {
+            border-color: #38bdf8;
+            background: #0ea5e9;
+            color: white;
+        }
+
+        .quiz-option-item.correct .opt-indicator {
+            border-color: #10b981;
+            background: #10b981;
+            color: white;
+        }
+
+        .quiz-option-item.incorrect .opt-indicator {
+            border-color: #ef4444;
+            background: #ef4444;
+            color: white;
+        }
+
+        .quiz-note-box {
+            margin-top: 10px;
+        }
+
+        .quiz-note-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 9px 12px;
+            font-size: 0.85rem;
+            color: #f8fafc;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .quiz-note-input:focus {
+            border-color: #38bdf8;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .quiz-explanation-box {
+            margin-top: 14px;
+            padding: 12px 16px;
+            background: rgba(14, 165, 233, 0.08);
+            border-left: 4px solid #38bdf8;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #cbd5e1;
+            display: none;
+        }
+
+        .quiz-explanation-box b {
+            color: #38bdf8;
+        }
+
+        .quiz-actions-bar {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #38bdf8;
+            color: #38bdf8;
+        }
+        .btn-outline:hover {
+            background: rgba(56, 189, 248, 0.15);
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            width: auto;
+            margin: 0;
+        }
+
+        /* Toast thông báo nổi hiện đại */
+        .app-toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.45);
+            color: #f8fafc;
+            padding: 10px 24px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 15px rgba(14, 165, 233, 0.3);
+            z-index: 99999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .app-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+    <!-- Thư viện Three.js để dựng mô hình 3D -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+
+<body>
+
+    <header>
+        <div>
+            <h1>Mô Phỏng Chuyển Động Brown & Va Chạm Đàn Hồi Phân Tử</h1>
+            <div id="status-text" style="font-size: 0.9rem; color: #94a3b8;">Trạng thái: Đang ở chế độ vĩ mô (Nồi nước)</div>
+        </div>
+        <div class="header-nav">
+            <button class="tab-nav-btn active" id="tab-nav-sim" onclick="switchMainTab('sim')">
+                <span>🔬</span> Thí Nghiệm Mô Phỏng
+            </button>
+            <button class="tab-nav-btn" id="tab-nav-quiz" onclick="switchMainTab('quiz')">
+                <span>📝</span> Dự Đoán Bài Học
+                <span class="tab-counter" id="quiz-badge-counter">0/5</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Giao diện Nồi nước (Macro View) -->
+        <div id="macro-view">
+            <!-- Banner mời gọi học sinh làm bài dự đoán -->
+            <div class="pre-quiz-banner" onclick="switchMainTab('quiz')">
+                <span class="banner-icon">💡</span>
+                <div class="banner-text">
+                    <b>Thử thách dự đoán trước khi thí nghiệm:</b> Hãy trả lời 5 câu hỏi dự đoán hiện tượng để kiểm chứng với mô phỏng 3D!
+                </div>
+                <button class="btn btn-outline btn-sm">Làm bài dự đoán →</button>
+            </div>
+
+            <div class="stove-container" onclick="enterMicroView()">
+                <div class="pot">
+                    <div class="pot-handle-left"></div>
+                    <div class="pot-handle-right"></div>
+                    <div class="water">
+                        <div class="water-text">Nhấn vào nước để vào Mô phỏng 3D<br><span
+                                style="font-size:0.8rem; font-weight:normal;">(Va chạm đàn hồi & Chuyển động
+                                Brown)</span></div>
+                    </div>
+                </div>
+                <div class="stove">
+                    <div class="fire" id="macro-fire">
+                        <div class="flame"></div>
+                        <div class="flame"></div>
+                        <div class="flame"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="macro-controls">
+                <button class="btn btn-primary" id="toggle-stove-btn" onclick="toggleStove(event)">Bật bếp lửa</button>
+            </div>
+        </div>
+
+        <!-- Nút quay lại -->
+        <button class="back-btn" id="back-btn" onclick="returnToMacroView()">← Quay lại Nồi nước</button>
+
+        <!-- Mô phỏng 3D Micro View -->
+        <div id="micro-view">
+            <div id="canvas-container"></div>
+        </div>
+
+        <!-- Giao diện Phiếu Dự Đoán Hiện Tượng (5 Câu Hỏi) -->
+        <div id="quiz-view">
+            <div class="quiz-content-wrapper">
+                <div class="quiz-header">
+                    <div class="quiz-title-box">
+                        <h2><span>📝</span> Phiếu Dự Đoán Hiện Tượng: Chuyển Động Brown & Nhiệt Động Học</h2>
+                        <p class="quiz-subtitle">Hãy vận dụng kiến thức vật lý để dự đoán các hiện tượng xảy ra trong nồi nước trước khi quan sát mô phỏng 3D.</p>
+                    </div>
+                    <div class="quiz-progress-box">
+                        <div class="quiz-progress-text">Tiến độ dự đoán: <span id="quiz-answered-count">0</span>/5 câu</div>
+                        <div class="progress-track">
+                            <div class="progress-bar" id="quiz-progress-bar" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quiz-score-banner" id="quiz-score-banner">
+                    <div style="font-size: 2rem;" id="quiz-score-icon">🎉</div>
+                    <div>
+                        <h4 id="quiz-score-title" style="font-size: 1.1rem; color: #f8fafc; margin-bottom: 4px;">Kết quả dự đoán</h4>
+                        <p id="quiz-score-desc" style="font-size: 0.88rem; color: #cbd5e1; margin: 0; line-height: 1.4;"></p>
+                    </div>
+                </div>
+
+                <div id="quiz-cards-container">
+                    <!-- 5 câu hỏi sẽ được render tự động bằng Javascript -->
+                </div>
+
+                <div class="quiz-actions-bar">
+                    <button class="btn btn-primary" id="btn-submit-quiz" onclick="submitQuiz()" style="width: auto; padding: 12px 24px;">
+                        ✅ Nộp Dự Đoán & Nhận Nhận Xét
+                    </button>
+                    <button class="btn btn-secondary" id="btn-reset-quiz" onclick="resetQuiz()" style="width: auto; padding: 12px 20px;">
+                        🔄 Làm Lại
+                    </button>
+                    <button class="btn btn-success" id="btn-go-sim" onclick="startSimFromQuiz()" style="width: auto; padding: 12px 26px;">
+                        🚀 Bắt Đầu Mô Phỏng Để Kiểm Chứng →
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bảng điều khiển tham số mô phỏng 3D -->
+        <div class="controls-panel" id="controls-panel">
+            <!-- Thẻ trượt bên hông (Peek Tab) giúp nhận biết & rê chuột vào để mở bảng -->
+            <div class="panel-peek-tab" id="panel-peek-tab" onclick="toggleControlsPanel()" title="Bấm hoặc rê chuột để mở/thu gọn bảng tham số">
+                <span class="peek-tab-icon">⚙️</span>
+                <span class="peek-tab-label">Tham số</span>
+                <span class="peek-tab-arrow" id="peek-tab-arrow">◀</span>
+            </div>
+
+            <div class="controls-panel-inner">
+                <div class="panel-header-row">
+                    <h3><span>⚙️</span> Tham Số Mô Phỏng 3D</h3>
+                    <div class="panel-header-tools">
+                        <button type="button" class="btn-icon-panel" id="btn-pin-panel" onclick="togglePinControlsPanel()" title="Ghim bảng cố định (không tự trượt ẩn)">
+                            <span id="pin-icon">📌</span>
+                        </button>
+                        <button type="button" class="btn-icon-panel" onclick="collapseControlsPanelManually()" title="Thu gọn bảng sang phải">
+                            <span>✕</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="panel-hint-bar" id="panel-hint-bar">
+                    <span class="hint-dot"></span> Bảng tự trượt ẩn khi chuột ra xa
+                </div>
+
+                <!-- Thước đo lan tỏa nhiệt độ phân lớp -->
+                <div class="thermal-gradient-panel">
+                    <div class="thermal-row">
+                        <span>Mặt thoáng (trên cùng):</span>
+                        <span class="thermal-badge cool" id="val-temp-top">0.1</span>
+                    </div>
+                    <div class="thermal-bar-container">
+                        <div class="thermal-bar-fill" id="thermal-bar-fill"></div>
+                    </div>
+                    <div class="thermal-row">
+                        <span>Đáy nồi (sát mâm nhiệt):</span>
+                        <span class="thermal-badge hot" id="val-temp-bottom">0.1</span>
+                    </div>
+                </div>
+
+                <div class="control-item">
+                    <label>Năng lượng (Nhiệt độ TB): <span id="val-temp">0.1</span></label>
+                    <input type="range" id="param-temp" min="0.1" max="5.0" step="0.1" value="0.1" title="0.1"
+                        oninput="this.title=this.value; setGlobalTemperatureManual(parseFloat(this.value));">
+                </div>
+
+                <div class="control-item">
+                    <label>Kích thước hạt khác: <span id="val-size">0.5</span></label>
+                    <input type="range" id="param-size" min="0.5" max="2.5" step="0.1" value="0.5" title="0.5"
+                        oninput="this.title=this.value; document.getElementById('val-size').innerText=parseFloat(this.value).toFixed(1); params.particleSize=parseFloat(this.value); updateParticlesConfig();">
+                </div>
+
+                <div class="control-item">
+                    <label>Khối lượng phân tử: <span id="val-mass">0.2</span></label>
+                    <input type="range" id="param-mass" min="0.2" max="5.0" step="0.2" value="0.2" title="0.2"
+                        oninput="this.title=this.value; document.getElementById('val-mass').innerText=parseFloat(this.value).toFixed(1); params.particleMass=parseFloat(this.value); updateParticlesConfig();">
+                </div>
+
+                <div class="control-item">
+                    <label>Thêm hạt phụ: <span id="val-extra">0</span></label>
+                    <input type="range" id="param-extra" min="0" max="150" step="10" value="0" title="0"
+                        oninput="this.title=this.value; document.getElementById('val-extra').innerText=this.value; params.extraCount=parseInt(this.value); adjustExtraParticles();">
+                </div>
+
+                <button class="btn btn-primary" id="toggle-trail-btn" onclick="toggleTrails()">Bật/Tắt Đường Đi (10 hạt)</button>
+                <button class="btn btn-primary" onclick="toggleStoveMicro()" id="stove-micro-btn"
+                    style="margin-top: 6px; background: #0ea5e9;">Bật Bếp Lửa</button>
+                <button class="btn btn-outline" onclick="switchMainTab('quiz')" style="margin-top: 6px;">
+                    📝 Xem Lại Câu Hỏi Dự Đoán
+                </button>
+
+                <div class="legend">
+                    • <b>Nhiệt lan tỏa từ đáy</b>: Khi bật lửa, đáy nồi nóng trước rồi nhiệt đối lưu dần lên trên.<br>
+                    • <b>10 hạt đầu tiên</b> có màu sắc độc lập và giữ vết quỹ đạo.<br>
+                    • Áp dụng định luật bảo toàn động lượng và va chạm đàn hồi hoàn toàn với thành nồi & các hạt.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Biến toàn cục trạng thái ứng dụng ---
+        let stoveIsOn = false;
+        let inMicroView = false;
+        let currentMainTab = 'sim'; // 'sim' hoặc 'quiz'
+        let previousSimMode = 'macro'; // 'macro' hoặc 'micro'
+
+        // Các tham số mô phỏng vật lý
+        let params = {
+            temperature: 0.1,
+            particleSize: 0.5,
+            particleMass: 0.2,
+            extraCount: 0,
+            showTrails: false
+        };
+
+        // --- Hệ thống lan tỏa nhiệt độ phân lớp (Thermodynamic Layer Diffusion & Convection) ---
+        const NUM_LAYERS = 10;
+        let layerTemps = new Float32Array(NUM_LAYERS).fill(0.1);
+        let bottomPlateTemp = 0.1; // Nhiệt độ mâm nhiệt đáy nồi
+        let bottomPlateMesh = null;
+        let heatGlowLight = null;
+        const clock = new THREE.Clock();
+
+        // Biến Three.js
+        let scene, camera, renderer, animationFrameId = null, controls = null;
+        let particles = [];
+        let potRadius = 15;
+        let potHeight = 25; // Chiều cao thành nồi 3D
+        let trackedLines = []; // Mảng lưu các đường đi của 10 hạt đầu
+
+        // Màu sắc cho 10 hạt đầu tiên
+        const trackedColors = [
+            0xff4500, 0x00ffff, 0xff00ff, 0xffff00, 0x00ff00,
+            0xff1493, 0x1e90ff, 0xffd700, 0xadff2f, 0xff69b4
+        ];
+
+        // ==============================================================
+        // 1. DỮ LIỆU & LOGIC PHIẾU CÂU HỎI DỰ ĐOÁN (5 CÂU HỎI)
+        // ==============================================================
+        const quizQuestions = [
+            {
+                id: 1,
+                topic: "Nhiệt độ & Vận tốc phân tử",
+                question: "Khi bật bếp đun nóng nồi nước, năng lượng nhiệt được cung cấp cho hệ thống. Theo Thuyết động học phân tử, chuyển động của các phân tử nước sẽ thay đổi như thế nào?",
+                options: [
+                    "Vận tốc chuyển động nhiệt hỗn loạn tăng lên, các cú va chạm giữa các phân tử diễn ra nhanh và dữ dội hơn.",
+                    "Các phân tử chỉ nở to ra về kích thước, tốc độ di chuyển vẫn giữ nguyên không đổi.",
+                    "Các phân tử bắt đầu chuyển động theo hàng lối thẳng tắp có trật tự từ đáy lên mặt nước.",
+                    "Các phân tử giảm dần tốc độ và đứng yên khi nhiệt độ đạt mức cao nhất."
+                ],
+                correct: 0,
+                explanation: "Theo Thuyết động học phân tử, nhiệt độ là thước đo động năng chuyển động nhiệt trung bình của các phân tử (Ed = 3/2 * kB * T). Khi nhiệt độ tăng, các phân tử hấp thụ nhiệt năng chuyển hóa thành động năng, khiến chúng chuyển động hỗn loạn nhanh hơn và va đập dữ dội hơn."
+            },
+            {
+                id: 2,
+                topic: "Quá trình lan tỏa nhiệt (Dẫn nhiệt & Đối lưu)",
+                question: "Nguồn lửa đặt ở đáy nồi. Khi vừa bật bếp lên, hiện tượng tăng nhiệt độ và tăng tốc của các phân tử trong lòng chất lỏng sẽ diễn ra theo quy luật nào?",
+                options: [
+                    "Tất cả các phân tử từ đáy lên đến mặt thoáng lập tức tăng tốc đạt vận tốc tối đa cùng một lúc.",
+                    "Nhiệt truyền từ đáy lên: Các hạt ở sát đáy nồi nóng lên và tăng tốc trước, sau đó truyền động năng dần dần lên các tầng nước phía trên thông qua va chạm và đối lưu.",
+                    "Các hạt ở bề mặt trên cùng nóng lên trước rồi mới truyền nhiệt ngược xuống đáy nồi.",
+                    "Chỉ có 10 hạt màu được đánh dấu là tăng tốc, các hạt còn lại không bị ảnh hưởng bởi nhiệt độ."
+                ],
+                correct: 1,
+                explanation: "Nhiệt lượng truyền từ mâm nhiệt đáy nồi vào chất lỏng trước tiên. Các phân tử ở đáy hấp thụ nhiệt nóng lên, chuyển động nhanh hơn, dãn nở (giảm khối lượng riêng) và nổi lên trên (đối lưu nhiệt), đồng thời va chạm truyền động năng cho các phân tử lân cận (dẫn nhiệt). Do đó nhiệt độ và vận tốc hạt lan tỏa dần từ đáy lên đỉnh nồi."
+            },
+            {
+                id: 3,
+                topic: "Khối lượng & Quán tính chuyển động nhiệt",
+                question: "Ở cùng một nhiệt độ, nếu bạn tăng thanh trượt 'Khối lượng phân tử' lên mức cao hơn (hạt nặng hơn), quỹ đạo và vận tốc của hạt nặng sẽ có đặc điểm gì so với hạt nhẹ?",
+                options: [
+                    "Hạt nặng có quán tính lớn hơn nên vận tốc trung bình nhỏ hơn (v ∝ 1/√m), chuyển động đầm hơn và ít bị đổi hướng đột ngột khi bị hạt khác va chạm.",
+                    "Hạt nặng hơn sẽ chuyển động nhanh gấp đôi các hạt nhẹ vì tích tụ nhiều khối lượng hơn.",
+                    "Hạt nặng lập tức rơi xuống đáy và nằm bất động hoàn toàn, không tham gia va chạm nhiệt.",
+                    "Khối lượng không có bất kỳ ảnh hưởng nào đến tốc độ hay quỹ đạo chuyển động nhiệt của hạt."
+                ],
+                correct: 0,
+                explanation: "Theo định lý cân bằng đều động năng (1/2 * m * v² = 3/2 * kB * T), ở cùng nhiệt độ, hạt có khối lượng m càng lớn thì vận tốc trung bình càng nhỏ. Đồng thời theo định luật II Newton (a = F/m), hạt có quán tính lớn khó bị gia tốc và đổi hướng đột ngột khi va chạm với các hạt nhẹ."
+            },
+            {
+                id: 4,
+                topic: "Bản chất Chuyển động Brown (10 hạt theo dõi)",
+                question: "Khi bấm 'Bật Đường Đi (10 hạt)' để hiển thị vết quỹ đạo chuyển động theo thời gian, hình dạng của đường đi sẽ có đặc điểm gì?",
+                options: [
+                    "Là đường gấp khúc dích dắc ngẫu nhiên (Random Walk), liên tục đổi hướng sau mỗi cú va chạm đàn hồi.",
+                    "Là những vòng tròn đồng tâm quay đều đặn quanh trục giữa của nồi.",
+                    "Là những đường thẳng tắp nối từ thành nồi bên này sang thành nồi bên kia không đổi hướng.",
+                    "Là đường xoắn ốc đều đặn thu nhỏ dần về tâm bình."
+                ],
+                correct: 0,
+                explanation: "Năm 1827, Robert Brown phát hiện ra chuyển động hỗn loạn không ngừng của các hạt trong chất lỏng. Quỹ đạo của chuyển động Brown là đường đi ngẫu nhiên (Random Walk) gồm vô số các đoạn bay tự do thẳng bị bẻ gãy phương hướng liên tục bởi các cú va chạm ngẫu nhiên với các phân tử xung quanh."
+            },
+            {
+                id: 5,
+                topic: "Mật độ hạt & Tần số va chạm",
+                question: "Khi kéo thanh trượt 'Thêm hạt phụ' từ 0 lên 100+ hạt (tăng mật độ phân tử trong cùng một thể tích), hiện tượng gì sẽ xảy ra rõ rệt nhất?",
+                options: [
+                    "Tần số va chạm giữa các hạt tăng vọt, quãng đường tự do trung bình giữa 2 lần va chạm liên tiếp ngắn lại.",
+                    "Các hạt sẽ tự động dính chặt vào nhau và ngưng hoàn toàn chuyển động.",
+                    "Vận tốc của từng hạt sẽ tự động tăng lên vô hạn dù không tăng thêm nhiệt độ.",
+                    "Nồi nước sẽ tự động giảm nhiệt độ về 0 độ tuyệt đối."
+                ],
+                correct: 0,
+                explanation: "Khi tăng mật độ phân tử n = N/V, khoảng cách trung bình giữa các phân tử bị thu hẹp. Quãng đường tự do trung bình λ giảm xuống, làm cho thời gian giữa hai lần va chạm liên tiếp ngắn lại và tần số va chạm f = v/λ tăng lên đáng kể."
+            }
+        ];
+
+        let userAnswers = {};
+        let userNotes = {};
+        let quizSubmitted = false;
+
+        function renderQuizCards() {
+            const container = document.getElementById('quiz-cards-container');
+            if (!container) return;
+
+            let html = '';
+            quizQuestions.forEach((q, qIdx) => {
+                const optLetters = ['A', 'B', 'C', 'D'];
+                let optionsHtml = '';
+
+                q.options.forEach((optText, optIdx) => {
+                    let isSelected = userAnswers[q.id] === optIdx;
+                    let extraClass = '';
+                    if (quizSubmitted) {
+                        if (optIdx === q.correct) extraClass = 'correct';
+                        else if (isSelected && optIdx !== q.correct) extraClass = 'incorrect';
+                    } else if (isSelected) {
+                        extraClass = 'selected';
+                    }
+
+                    optionsHtml += `
+                        <div class="quiz-option-item ${extraClass}" onclick="selectQuizOption(${q.id}, ${optIdx})">
+                            <div class="opt-indicator">${optLetters[optIdx]}</div>
+                            <div>${optText}</div>
+                        </div>
+                    `;
+                });
+
+                let explanationStyle = quizSubmitted ? 'display: block;' : 'display: none;';
+                let savedNote = userNotes[q.id] || '';
+
+                let statusBadgeHtml = '';
+                if (quizSubmitted) {
+                    if (userAnswers[q.id] === q.correct) {
+                        statusBadgeHtml = `<span style="color: #4ade80; font-size: 0.8rem; font-weight: 600;">✔ Dự đoán đúng (+1)</span>`;
+                    } else if (userAnswers[q.id] !== undefined) {
+                        statusBadgeHtml = `<span style="color: #f87171; font-size: 0.8rem; font-weight: 600;">✘ Dự đoán chưa đúng</span>`;
+                    } else {
+                        statusBadgeHtml = `<span style="color: #94a3b8; font-size: 0.8rem; font-weight: 500;">⚪ Chưa trả lời</span>`;
+                    }
+                }
+
+                html += `
+                    <div class="quiz-card" id="quiz-card-${q.id}">
+                        <div class="quiz-card-top">
+                            <span class="quiz-card-badge">Câu ${q.id} • ${q.topic}</span>
+                            <span id="quiz-status-${q.id}">${statusBadgeHtml}</span>
+                        </div>
+                        <div class="quiz-question-text">${q.question}</div>
+                        <div class="quiz-options-group">
+                            ${optionsHtml}
+                        </div>
+                        <div class="quiz-note-box">
+                            <input type="text" class="quiz-note-input" 
+                                placeholder="✏️ Viết ghi chú ngắn / giải thích lý do dự đoán của em (tùy chọn)..." 
+                                value="${savedNote}" 
+                                oninput="updateQuizNote(${q.id}, this.value)">
+                        </div>
+                        <div class="quiz-explanation-box" id="quiz-exp-${q.id}" style="${explanationStyle}">
+                            <b>💡 Giải thích khoa học & Điều cần quan sát:</b><br>
+                            ${q.explanation}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            updateQuizProgress();
+        }
+
+        function selectQuizOption(qId, optIdx) {
+            if (quizSubmitted) return; // Đã nộp bài thì không sửa
+            userAnswers[qId] = optIdx;
+            renderQuizCards();
+        }
+
+        function updateQuizNote(qId, note) {
+            userNotes[qId] = note;
+        }
+
+        function updateQuizProgress() {
+            let answeredCount = Object.keys(userAnswers).length;
+            const progressTxt = document.getElementById('quiz-answered-count');
+            const progressBar = document.getElementById('quiz-progress-bar');
+            const badgeCounter = document.getElementById('quiz-badge-counter');
+
+            if (progressTxt) progressTxt.innerText = answeredCount;
+            if (progressBar) progressBar.style.width = (answeredCount / 5 * 100) + '%';
+            if (badgeCounter) badgeCounter.innerText = `${answeredCount}/5`;
+        }
+
+        function submitQuiz() {
+            let answeredCount = Object.keys(userAnswers).length;
+            if (answeredCount === 0) {
+                showSimToast('⚠️ Em chưa chọn câu trả lời nào! Hãy chọn ít nhất 1 câu dự đoán trước khi nộp.');
+                return;
+            }
+
+            quizSubmitted = true;
+
+            // Tính điểm
+            let correctCount = 0;
+            quizQuestions.forEach(q => {
+                if (userAnswers[q.id] === q.correct) correctCount++;
+            });
+
+            renderQuizCards();
+
+            // Hiển thị banner kết quả
+            const scoreBanner = document.getElementById('quiz-score-banner');
+            const scoreTitle = document.getElementById('quiz-score-title');
+            const scoreDesc = document.getElementById('quiz-score-desc');
+            const scoreIcon = document.getElementById('quiz-score-icon');
+
+            if (scoreBanner) {
+                scoreBanner.style.display = 'flex';
+                if (correctCount >= 4) {
+                    scoreIcon.innerText = '🌟';
+                    scoreTitle.innerText = `Xuất sắc! Em đã dự đoán đúng ${correctCount}/5 câu!`;
+                    scoreDesc.innerText = 'Dự đoán của em rất chính xác theo Thuyết động học phân tử. Hãy bấm "Bắt Đầu Mô Phỏng" để quan sát sự chuyển động thực tế!';
+                } else if (correctCount >= 2) {
+                    scoreIcon.innerText = '👍';
+                    scoreTitle.innerText = `Tốt lắm! Em đã dự đoán đúng ${correctCount}/5 câu.`;
+                    scoreDesc.innerText = 'Hãy đọc kỹ phần giải thích khoa học màu xanh ở các câu hỏi, sau đó vào mô phỏng 3D để kiểm chứng lại nhé!';
+                } else {
+                    scoreIcon.innerText = '💡';
+                    scoreTitle.innerText = `Đã ghi nhận dự đoán (${correctCount}/5 câu đúng).`;
+                    scoreDesc.innerText = 'Đừng lo lắng! Mô phỏng 3D sẽ giúp em nhìn thấy trực quan chuyển động và lan tỏa nhiệt để hiểu bài học sâu sắc hơn.';
+                }
+
+                const quizView = document.getElementById('quiz-view');
+                if (quizView) {
+                    quizView.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            }
+
+            const submitBtn = document.getElementById('btn-submit-quiz');
+            if (submitBtn) {
+                submitBtn.innerHTML = '✅ Đã Nộp Dự Đoán (Bấm để cập nhật)';
+            }
+        }
+
+        function resetQuiz() {
+            userAnswers = {};
+            userNotes = {};
+            quizSubmitted = false;
+
+            const scoreBanner = document.getElementById('quiz-score-banner');
+            if (scoreBanner) {
+                scoreBanner.style.display = 'none';
+            }
+
+            const submitBtn = document.getElementById('btn-submit-quiz');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '✅ Nộp Dự Đoán & Nhận Nhận Xét';
+            }
+
+            renderQuizCards();
+            updateQuizProgress();
+
+            const quizView = document.getElementById('quiz-view');
+            if (quizView) {
+                quizView.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            showSimToast('🔄 Đã làm lại bài dự đoán! Mời em chọn lại các phương án.');
+        }
+
+        function startSimFromQuiz() {
+            switchMainTab('sim');
+            // Mở thẳng màn hình micro 3D để quan sát
+            if (!inMicroView) {
+                enterMicroView();
+            }
+        }
+
+        // ==============================================================
+        // 2. CHUYỂN ĐỔI TAB CHÍNH (MÔ PHỎNG / BÀI DỰ ĐOÁN)
+        // ==============================================================
+        function switchMainTab(tab) {
+            if (tab === currentMainTab) return;
+            currentMainTab = tab;
+
+            const btnSim = document.getElementById('tab-nav-sim');
+            const btnQuiz = document.getElementById('tab-nav-quiz');
+            const quizView = document.getElementById('quiz-view');
+            const macroView = document.getElementById('macro-view');
+            const microView = document.getElementById('micro-view');
+            const controlsPanel = document.getElementById('controls-panel');
+            const backBtn = document.getElementById('back-btn');
+            const statusText = document.getElementById('status-text');
+
+            if (tab === 'quiz') {
+                if (btnSim) btnSim.classList.remove('active');
+                if (btnQuiz) btnQuiz.classList.add('active');
+
+                previousSimMode = inMicroView ? 'micro' : 'macro';
+
+                if (macroView) macroView.style.display = 'none';
+                if (microView) microView.style.display = 'none';
+                if (controlsPanel) controlsPanel.style.display = 'none';
+                if (backBtn) backBtn.style.display = 'none';
+
+                if (quizView) quizView.style.display = 'block';
+                if (statusText) statusText.innerText = 'Trạng thái: Phiếu dự đoán hiện tượng (5 câu hỏi trước khi quan sát mô phỏng)';
+            } else {
+                if (btnQuiz) btnQuiz.classList.remove('active');
+                if (btnSim) btnSim.classList.add('active');
+
+                if (quizView) quizView.style.display = 'none';
+
+                if (previousSimMode === 'micro') {
+                    inMicroView = true;
+                    if (microView) microView.style.display = 'block';
+                    if (controlsPanel) {
+                        controlsPanel.style.display = 'block';
+                        setControlsPanelCollapsed(false);
+                    }
+                    if (backBtn) backBtn.style.display = 'block';
+                    if (statusText) statusText.innerText = 'Trạng thái: Mô phỏng Vi mô 3D (Bình chứa & Va chạm)';
+                    if (!animationFrameId && renderer) {
+                        animate();
+                    }
+                } else {
+                    inMicroView = false;
+                    if (macroView) {
+                        macroView.style.display = 'flex';
+                        macroView.style.opacity = '1';
+                    }
+                    if (statusText) statusText.innerText = 'Trạng thái: Đang ở chế độ vĩ mô (Nồi nước)';
+                }
+            }
+        }
+
+        // ==============================================================
+        // 3. MÔ PHỎNG LAN TỎA NHIỆT ĐỘ TỪ ĐÁY (THERMAL DIFFUSION)
+        // ==============================================================
+        function getFluidTempAtY(y) {
+            let halfH = potHeight / 2;
+            let normalized = Math.max(0, Math.min(0.999, (y + halfH) / potHeight));
+            let u = normalized * NUM_LAYERS;
+            let k = Math.floor(u);
+            let frac = u - k;
+            let nextK = Math.min(NUM_LAYERS - 1, k + 1);
+            return layerTemps[k] * (1 - frac) + layerTemps[nextK] * frac;
+        }
+
+        function updateThermalDiffusion(dt) {
+            // 1. Mâm nhiệt đáy nồi nhận nhiệt từ ngọn lửa bếp (5.0 khi bật, 0.1 khi tắt)
+            let targetPlateTemp = stoveIsOn ? 5.0 : 0.1;
+            let heatRate = stoveIsOn ? 0.9 : 0.45;
+            bottomPlateTemp += (targetPlateTemp - bottomPlateTemp) * (1 - Math.exp(-heatRate * dt));
+
+            // 2. Lớp nước sát đáy (Layer 0) tiếp xúc trực tiếp mâm nhiệt
+            layerTemps[0] += (bottomPlateTemp - layerTemps[0]) * 1.8 * dt;
+
+            // 3. Quá trình truyền nhiệt (Dẫn nhiệt & Đối lưu nhiệt dâng lên)
+            let newTemps = new Float32Array(layerTemps);
+            for (let k = 0; k < NUM_LAYERS - 1; k++) {
+                let diff = layerTemps[k] - layerTemps[k + 1];
+                let conduction = diff * 0.5 * dt; // Dẫn nhiệt cơ bản giữa các phân tử
+                let convection = Math.max(0, diff) * 1.1 * dt; // Đối lưu nhiệt chất lỏng nóng nổi lên
+                let flux = conduction + convection;
+                newTemps[k] -= flux;
+                newTemps[k + 1] += flux;
+            }
+
+            // 4. Lớp mặt thoáng trên cùng (Layer 9) tản nhiệt nhẹ ra không khí
+            newTemps[NUM_LAYERS - 1] += (0.1 - newTemps[NUM_LAYERS - 1]) * 0.25 * dt;
+
+            // Tản nhiệt tự nhiên cho các lớp
+            for (let k = 0; k < NUM_LAYERS; k++) {
+                newTemps[k] += (0.1 - newTemps[k]) * 0.03 * dt;
+                layerTemps[k] = Math.max(0.1, Math.min(5.0, newTemps[k]));
+            }
+
+            // 5. Nhiệt độ trung bình toàn bộ nồi
+            let sum = 0;
+            for (let k = 0; k < NUM_LAYERS; k++) sum += layerTemps[k];
+            params.temperature = sum / NUM_LAYERS;
+
+            // Cập nhật UI tham số
+            let tempVal = document.getElementById('val-temp');
+            if (tempVal) tempVal.innerText = params.temperature.toFixed(1);
+            let tempSlider = document.getElementById('param-temp');
+            if (tempSlider) {
+                tempSlider.value = params.temperature.toFixed(1);
+                tempSlider.title = params.temperature.toFixed(1);
+            }
+            let bottomTempVal = document.getElementById('val-temp-bottom');
+            if (bottomTempVal) bottomTempVal.innerText = layerTemps[0].toFixed(1);
+            let topTempVal = document.getElementById('val-temp-top');
+            if (topTempVal) topTempVal.innerText = layerTemps[NUM_LAYERS - 1].toFixed(1);
+
+            let fill = document.getElementById('thermal-bar-fill');
+            if (fill) {
+                let pct = Math.min(100, Math.max(2, (params.temperature / 5.0) * 100));
+                fill.style.width = pct + '%';
+            }
+
+            // 6. Hiệu ứng thị giác mâm nhiệt đáy nồi 3D
+            if (bottomPlateMesh && bottomPlateMesh.material) {
+                let heatRatio = Math.max(0, (bottomPlateTemp - 0.1) / 4.9);
+                bottomPlateMesh.material.emissive.setRGB(heatRatio * 0.95, heatRatio * 0.35, heatRatio * 0.05);
+                bottomPlateMesh.material.emissiveIntensity = heatRatio * 1.8;
+                if (bottomPlateMesh.ring) {
+                    bottomPlateMesh.ring.material.opacity = heatRatio * 0.85;
+                }
+            }
+            if (heatGlowLight) {
+                let heatRatio = Math.max(0, (bottomPlateTemp - 0.1) / 4.9);
+                heatGlowLight.intensity = heatRatio * 3.0;
+            }
+        }
+
+        // Chỉnh nhiệt độ thủ công bằng thanh trượt
+        window.setGlobalTemperatureManual = function(val) {
+            params.temperature = val;
+            bottomPlateTemp = val;
+            for (let k = 0; k < NUM_LAYERS; k++) {
+                layerTemps[k] = val;
+            }
+            particles.forEach(p => p.temp = val);
+            let tempVal = document.getElementById('val-temp');
+            if (tempVal) tempVal.innerText = val.toFixed(1);
+            let bottomTempVal = document.getElementById('val-temp-bottom');
+            if (bottomTempVal) bottomTempVal.innerText = val.toFixed(1);
+            let topTempVal = document.getElementById('val-temp-top');
+            if (topTempVal) topTempVal.innerText = val.toFixed(1);
+        };
+
+        function syncStoveUI() {
+            const fire = document.getElementById('macro-fire');
+            const macroBtn = document.getElementById('toggle-stove-btn');
+            const microBtn = document.getElementById('stove-micro-btn');
+
+            if (stoveIsOn) {
+                if (fire) fire.classList.add('active');
+                if (macroBtn) { macroBtn.innerText = 'Tắt bếp lửa'; macroBtn.style.background = '#ef4444'; }
+                if (microBtn) { microBtn.innerText = 'Tắt Bếp Lửa'; microBtn.style.background = '#ef4444'; }
+            } else {
+                if (fire) fire.classList.remove('active');
+                if (macroBtn) { macroBtn.innerText = 'Bật bếp lửa'; macroBtn.style.background = '#0ea5e9'; }
+                if (microBtn) { microBtn.innerText = 'Bật Bếp Lửa'; microBtn.style.background = '#0ea5e9'; }
+            }
+        }
+
+        // --- Điều khiển Bếp ---
+        function toggleStove(event) {
+            if (event) event.stopPropagation();
+            stoveIsOn = !stoveIsOn;
+            syncStoveUI();
+        }
+
+        function toggleStoveMicro() {
+            stoveIsOn = !stoveIsOn;
+            syncStoveUI();
+        }
+
+        // ==============================================================
+        // CƠ CHẾ TỰ ĐỘNG TRƯỢT BẢNG THAM SỐ 3D KHI CHUỘT RA XA / LẠI GẦN
+        // ==============================================================
+        let isMouseOverPanelOrNear = false;
+        let isDraggingSlider = false;
+        let isPanelPinned = false;
+        let panelAutoHideTimer = null;
+        let panelIntroTimer = null;
+        let toastTimer = null;
+
+        function showSimToast(msg) {
+            let toast = document.getElementById('sim-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'sim-toast';
+                toast.className = 'app-toast';
+                document.body.appendChild(toast);
+            }
+            toast.innerHTML = msg;
+            toast.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2800);
+        }
+
+        function setControlsPanelCollapsed(collapsed) {
+            const panel = document.getElementById('controls-panel');
+            if (!panel) return;
+            if (isPanelPinned && collapsed) return; // Nếu đã ghim thì không tự thu gọn
+
+            if (collapsed) {
+                panel.classList.add('collapsed');
+                const arrow = document.getElementById('peek-tab-arrow');
+                if (arrow) arrow.innerText = '◀';
+            } else {
+                panel.classList.remove('collapsed');
+                const arrow = document.getElementById('peek-tab-arrow');
+                if (arrow) arrow.innerText = '▶';
+            }
+        }
+
+        function toggleControlsPanel() {
+            const panel = document.getElementById('controls-panel');
+            if (!panel) return;
+            const isCollapsed = panel.classList.contains('collapsed');
+            setControlsPanelCollapsed(!isCollapsed);
+        }
+
+        function collapseControlsPanelManually() {
+            setControlsPanelCollapsed(true);
+        }
+
+        function togglePinControlsPanel() {
+            isPanelPinned = !isPanelPinned;
+            const btn = document.getElementById('btn-pin-panel');
+            const panel = document.getElementById('controls-panel');
+            const hint = document.getElementById('panel-hint-bar');
+
+            if (isPanelPinned) {
+                if (btn) btn.classList.add('active');
+                if (panel) panel.classList.add('pinned');
+                setControlsPanelCollapsed(false);
+                if (hint) hint.innerHTML = '<span class="hint-dot" style="background:#38bdf8;box-shadow:0 0 6px #38bdf8;"></span> 📌 Đã ghim bảng cố định (không tự ẩn)';
+                showSimToast('📌 Đã ghim bảng tham số cố định.');
+            } else {
+                if (btn) btn.classList.remove('active');
+                if (panel) panel.classList.remove('pinned');
+                if (hint) hint.innerHTML = '<span class="hint-dot"></span> Bảng tự trượt ẩn khi chuột ra xa';
+                showSimToast('🔄 Đã bật chế độ tự động trượt ẩn khi chuột ra xa.');
+            }
+        }
+
+        function setupControlsPanelAutoSlide() {
+            const panel = document.getElementById('controls-panel');
+            if (!panel) return;
+
+            window.addEventListener('mousemove', (e) => {
+                if (!inMicroView) return;
+                if (isPanelPinned || isDraggingSlider) return;
+
+                const mouseX = e.clientX;
+                const mouseY = e.clientY;
+                const winW = window.innerWidth;
+                const rect = panel.getBoundingClientRect();
+                const isCollapsed = panel.classList.contains('collapsed');
+
+                if (isCollapsed) {
+                    // Khi bảng đang thu gọn sang phải:
+                    // Chuột lại gần vùng bên phải (cách mép phải <= 180px): Trượt ra
+                    if (winW - mouseX <= 180) {
+                        isMouseOverPanelOrNear = true;
+                        clearTimeout(panelAutoHideTimer);
+                        setControlsPanelCollapsed(false);
+                    }
+                } else {
+                    // Khi bảng đang mở:
+                    // Nếu chuột nằm trong bảng: Giữ nguyên
+                    const isInside = (mouseX >= rect.left - 10 && mouseX <= winW && mouseY >= rect.top - 10 && mouseY <= rect.bottom + 10);
+                    if (isInside) {
+                        isMouseOverPanelOrNear = true;
+                        clearTimeout(panelAutoHideTimer);
+                        panelAutoHideTimer = null;
+                        return;
+                    }
+
+                    // Tính khoảng cách từ chuột tới bảng
+                    const dx = Math.max(rect.left - mouseX, 0);
+                    const dy = Math.max(rect.top - mouseY, 0, mouseY - rect.bottom);
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    // Khi chuột đi ra xa bảng (> 90px): Tự động trượt sang phải khuất đi
+                    if (dist > 90) {
+                        isMouseOverPanelOrNear = false;
+                        if (!panelAutoHideTimer) {
+                            panelAutoHideTimer = setTimeout(() => {
+                                if (inMicroView && !isPanelPinned && !isDraggingSlider && !isMouseOverPanelOrNear) {
+                                    setControlsPanelCollapsed(true);
+                                }
+                                panelAutoHideTimer = null;
+                            }, 400); // Khoảng hoãn 400ms mượt mà
+                        }
+                    } else {
+                        // Chuột vẫn ở gần bảng
+                        isMouseOverPanelOrNear = true;
+                        if (panelAutoHideTimer) {
+                            clearTimeout(panelAutoHideTimer);
+                            panelAutoHideTimer = null;
+                        }
+                    }
+                }
+            });
+
+            // Khi rê chuột vào bảng
+            panel.addEventListener('mouseenter', () => {
+                if (!inMicroView) return;
+                isMouseOverPanelOrNear = true;
+                clearTimeout(panelAutoHideTimer);
+                panelAutoHideTimer = null;
+                setControlsPanelCollapsed(false);
+            });
+
+            // Khi chuột rời khỏi bảng
+            panel.addEventListener('mouseleave', (e) => {
+                if (!inMicroView || isPanelPinned || isDraggingSlider) return;
+                const distToRight = window.innerWidth - e.clientX;
+                if (distToRight > 160) {
+                    isMouseOverPanelOrNear = false;
+                    clearTimeout(panelAutoHideTimer);
+                    panelAutoHideTimer = setTimeout(() => {
+                        if (inMicroView && !isPanelPinned && !isDraggingSlider && !isMouseOverPanelOrNear) {
+                            setControlsPanelCollapsed(true);
+                        }
+                        panelAutoHideTimer = null;
+                    }, 400);
+                }
+            });
+
+            // Chuột rời khỏi cửa sổ duyệt web
+            document.addEventListener('mouseleave', () => {
+                if (!inMicroView || isPanelPinned || isDraggingSlider) return;
+                isMouseOverPanelOrNear = false;
+                clearTimeout(panelAutoHideTimer);
+                panelAutoHideTimer = setTimeout(() => {
+                    if (inMicroView && !isPanelPinned && !isDraggingSlider) {
+                        setControlsPanelCollapsed(true);
+                    }
+                }, 500);
+            });
+
+            // Giữ bảng mở khi người dùng đang kéo thanh trượt (slider)
+            const sliders = panel.querySelectorAll('input[type="range"]');
+            sliders.forEach(s => {
+                s.addEventListener('pointerdown', () => { isDraggingSlider = true; });
+                s.addEventListener('mousedown', () => { isDraggingSlider = true; });
+                s.addEventListener('touchstart', () => { isDraggingSlider = true; }, { passive: true });
+            });
+            window.addEventListener('pointerup', () => { isDraggingSlider = false; });
+            window.addEventListener('mouseup', () => { isDraggingSlider = false; });
+            window.addEventListener('touchend', () => { isDraggingSlider = false; });
+        }
+
+        // --- Chuyển đổi qua lại giữa Macro và Micro ---
+        function enterMicroView() {
+            inMicroView = true;
+            previousSimMode = 'micro';
+
+            if (!stoveIsOn) {
+                bottomPlateTemp = 0.1;
+                layerTemps.fill(0.1);
+                params.temperature = 0.1;
+            }
+            syncStoveUI();
+
+            document.getElementById('macro-view').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('macro-view').style.display = 'none';
+                document.getElementById('micro-view').style.display = 'block';
+
+                const panel = document.getElementById('controls-panel');
+                if (panel) {
+                    panel.style.display = 'block';
+                    // Hiển thị mở ra ban đầu
+                    setControlsPanelCollapsed(false);
+
+                    // Thông báo hướng dẫn tự trượt
+                    showSimToast('💡 Bảng tham số sẽ tự trượt ẩn sang phải khi bạn rê chuột ra xa');
+
+                    // Sau 2.5s, nếu chuột không ở gần bảng thì tự động trượt sang phải
+                    clearTimeout(panelIntroTimer);
+                    panelIntroTimer = setTimeout(() => {
+                        if (inMicroView && !isPanelPinned && !isDraggingSlider && !isMouseOverPanelOrNear) {
+                            setControlsPanelCollapsed(true);
+                        }
+                    }, 2500);
+                }
+
+                document.getElementById('back-btn').style.display = 'block';
+                document.getElementById('status-text').innerText = 'Trạng thái: Mô phỏng Vi mô 3D (Bình chứa & Va chạm)';
+
+                initThreeJS();
+            }, 300);
+        }
+
+        function returnToMacroView() {
+            inMicroView = false;
+            previousSimMode = 'macro';
+
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+
+            clearTimeout(panelAutoHideTimer);
+            clearTimeout(panelIntroTimer);
+
+            const panel = document.getElementById('controls-panel');
+            if (panel) {
+                panel.style.display = 'none';
+                setControlsPanelCollapsed(false);
+            }
+
+            document.getElementById('micro-view').style.display = 'none';
+            document.getElementById('back-btn').style.display = 'none';
+
+            const macroView = document.getElementById('macro-view');
+            macroView.style.display = 'flex';
+            setTimeout(() => { macroView.style.opacity = '1'; }, 50);
+
+            document.getElementById('status-text').innerText = 'Trạng thái: Đang ở chế độ vĩ mô (Nồi nước)';
+
+            const container = document.getElementById('canvas-container');
+            container.innerHTML = '';
+            scene = null;
+            camera = null;
+            renderer = null;
+            if (controls) {
+                controls.dispose();
+                controls = null;
+            }
+            particles = [];
+            trackedLines = [];
+        }
+
+        // ==============================================================
+        // 4. KHỞI TẠO KHÔNG GIAN 3D THREE.JS
+        // ==============================================================
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+            container.innerHTML = '';
+
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x0b0f19, 0.015);
+
+            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 5, 45);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // Ánh sáng môi trường
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+            scene.add(ambientLight);
+
+            const pointLight = new THREE.PointLight(0xffffff, 1.2);
+            pointLight.position.set(20, 30, 20);
+            scene.add(pointLight);
+
+            // Tạo khung thành nồi & mâm nhiệt đáy nồi
+            createPotBoundary();
+
+            // Khởi tạo các hạt phân tử
+            initParticles();
+
+            // Lắng nghe resize màn hình
+            window.addEventListener('resize', onWindowResize);
+
+            // Bắt đầu vòng lặp
+            clock.start();
+            animate();
+        }
+
+        // Tạo khung thành nồi 3D hình trụ & mâm nhiệt đáy nồi
+        function createPotBoundary() {
+            const potGroup = new THREE.Group();
+
+            // Khung hình trụ giới hạn
+            const cylGeo = new THREE.CylinderGeometry(potRadius, potRadius, potHeight, 32);
+            const wireMat = new THREE.MeshBasicMaterial({
+                color: 0x38bdf8,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.22
+            });
+            const potMesh = new THREE.Mesh(cylGeo, wireMat);
+            potGroup.add(potMesh);
+
+            // Mâm nhiệt đáy nồi (Burner Plate ở đáy y = -potHeight / 2)
+            const plateGeo = new THREE.CylinderGeometry(potRadius * 0.98, potRadius * 0.98, 0.8, 32);
+            const plateMat = new THREE.MeshStandardMaterial({
+                color: 0x1e293b,
+                roughness: 0.4,
+                metalness: 0.7,
+                emissive: 0x000000,
+                emissiveIntensity: 0.0
+            });
+            bottomPlateMesh = new THREE.Mesh(plateGeo, plateMat);
+            bottomPlateMesh.position.y = -potHeight / 2 - 0.4;
+            potGroup.add(bottomPlateMesh);
+
+            // Vành nhiệt phát sáng đáy
+            const ringGeo = new THREE.RingGeometry(potRadius * 0.25, potRadius * 0.88, 32);
+            ringGeo.rotateX(-Math.PI / 2);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: 0xf97316,
+                transparent: true,
+                opacity: 0.0,
+                side: THREE.DoubleSide
+            });
+            const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+            ringMesh.position.y = -potHeight / 2 + 0.02;
+            bottomPlateMesh.ring = ringMesh;
+            potGroup.add(ringMesh);
+
+            // Nguồn sáng nhiệt từ đáy
+            heatGlowLight = new THREE.PointLight(0xff4500, 0, 40);
+            heatGlowLight.position.set(0, -potHeight / 2 + 1.0, 0);
+            potGroup.add(heatGlowLight);
+
+            scene.add(potGroup);
+        }
+
+        function toggleTrails() {
+            params.showTrails = !params.showTrails;
+            trackedLines.forEach(l => {
+                if (l.mesh) l.mesh.visible = params.showTrails;
+            });
+        }
+
+        // Khởi tạo hạt vật lý
+        function initParticles() {
+            particles = [];
+            trackedLines = [];
+
+            const totalParticles = 10 + params.extraCount;
+
+            for (let i = 0; i < totalParticles; i++) {
+                let isTracked = i < 10;
+                let radius = isTracked ? 0.9 : (0.5 * params.particleSize);
+                let mass = isTracked ? 1.0 : params.particleMass;
+                let color = isTracked ? trackedColors[i] : 0x38bdf8;
+
+                const geo = new THREE.SphereGeometry(radius, 16, 16);
+                const mat = new THREE.MeshStandardMaterial({
+                    color: color,
+                    roughness: 0.3,
+                    metalness: 0.2,
+                    emissive: isTracked ? color : 0x000000,
+                    emissiveIntensity: isTracked ? 0.25 : 0.0
+                });
+                const mesh = new THREE.Mesh(geo, mat);
+
+                let r = Math.random() * (potRadius - 4);
+                let theta_pos = Math.random() * Math.PI * 2;
+                let pos = new THREE.Vector3(
+                    r * Math.cos(theta_pos),
+                    (Math.random() - 0.5) * (potHeight - 4),
+                    r * Math.sin(theta_pos)
+                );
+                mesh.position.copy(pos);
+                scene.add(mesh);
+
+                let initialTemp = getFluidTempAtY(pos.y);
+                let speed = Math.sqrt(initialTemp) * (Math.random() * 0.8 + 0.4);
+                let theta = Math.random() * Math.PI * 2;
+                let phi = Math.acos((Math.random() * 2) - 1);
+                let vel = new THREE.Vector3(
+                    speed * Math.sin(phi) * Math.cos(theta),
+                    speed * Math.sin(phi) * Math.sin(theta),
+                    speed * Math.cos(phi)
+                );
+
+                particles.push({
+                    mesh: mesh,
+                    pos: pos,
+                    vel: vel,
+                    radius: radius,
+                    mass: mass,
+                    temp: initialTemp, // Mỗi hạt mang nhiệt độ cục bộ
+                    isTracked: isTracked,
+                    history: []
+                });
+
+                if (isTracked) {
+                    const lineGeo = new THREE.BufferGeometry();
+                    const lineMat = new THREE.LineBasicMaterial({ color: color, linewidth: 2, transparent: true, opacity: 0.7 });
+                    const lineMesh = new THREE.Line(lineGeo, lineMat);
+                    lineMesh.visible = params.showTrails;
+                    scene.add(lineMesh);
+                    trackedLines.push({ mesh: lineMesh, points: [] });
+                }
+            }
+        }
+
+        function updateParticlesConfig() {
+            particles.forEach(p => {
+                if (!p.isTracked) {
+                    p.radius = 0.5 * params.particleSize;
+                    p.mass = params.particleMass;
+                    p.mesh.scale.set(params.particleSize, params.particleSize, params.particleSize);
+                }
+            });
+        }
+
+        function adjustExtraParticles() {
+            let targetTotal = 10 + params.extraCount;
+
+            while (particles.length > targetTotal && particles.length > 10) {
+                let p = particles.pop();
+                scene.remove(p.mesh);
+                if (p.mesh.geometry) p.mesh.geometry.dispose();
+                if (p.mesh.material) p.mesh.material.dispose();
+            }
+
+            while (particles.length < targetTotal) {
+                let radius = 0.5 * params.particleSize;
+                let mass = params.particleMass;
+                let color = 0x38bdf8;
+
+                const geo = new THREE.SphereGeometry(radius, 16, 16);
+                const mat = new THREE.MeshStandardMaterial({
+                    color: color,
+                    roughness: 0.3,
+                    metalness: 0.2,
+                    transparent: true,
+                    opacity: 0.0
+                });
+                const mesh = new THREE.Mesh(geo, mat);
+
+                let r = Math.random() * (potRadius - 4);
+                let theta_pos = Math.random() * Math.PI * 2;
+                let pos = new THREE.Vector3(
+                    r * Math.cos(theta_pos),
+                    (Math.random() - 0.5) * (potHeight - 4),
+                    r * Math.sin(theta_pos)
+                );
+                mesh.position.copy(pos);
+                scene.add(mesh);
+
+                let initialTemp = getFluidTempAtY(pos.y);
+                let speed = Math.sqrt(initialTemp) * (Math.random() * 0.8 + 0.4);
+                let theta = Math.random() * Math.PI * 2;
+                let phi = Math.acos((Math.random() * 2) - 1);
+                let vel = new THREE.Vector3(
+                    speed * Math.sin(phi) * Math.cos(theta),
+                    speed * Math.sin(phi) * Math.sin(theta),
+                    speed * Math.cos(phi)
+                );
+
+                particles.push({
+                    mesh: mesh,
+                    pos: pos,
+                    vel: vel,
+                    radius: radius,
+                    mass: mass,
+                    temp: initialTemp,
+                    isTracked: false,
+                    history: []
+                });
+            }
+
+            updateParticlesConfig();
+        }
+
+        function randn_bm() {
+            let u = 0, v = 0;
+            while (u === 0) u = Math.random();
+            while (v === 0) v = Math.random();
+            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        }
+
+        // ==============================================================
+        // 5. VÒNG LẶP VẬT LÝ, VA CHẠM ĐÀN HỒI & LAN TOẢ NHIỆT
+        // ==============================================================
+        function animate() {
+            if (!inMicroView) return;
+
+            animationFrameId = requestAnimationFrame(animate);
+
+            let dt = clock.getDelta();
+            if (dt > 0.05) dt = 0.05; // Giới hạn delta time để tránh bước nhảy lớn
+
+            // Cập nhật mô hình lan tỏa nhiệt từ đáy
+            updateThermalDiffusion(dt);
+
+            let gamma = 0.05;
+            let dtStep = 1.0;
+
+            for (let i = 0; i < particles.length; i++) {
+                let p = particles[i];
+
+                if (p.mesh.material.transparent && p.mesh.material.opacity < 1.0) {
+                    p.mesh.material.opacity += 0.05;
+                    if (p.mesh.material.opacity >= 1.0) {
+                        p.mesh.material.opacity = 1.0;
+                        p.mesh.material.transparent = false;
+                    }
+                }
+
+                // Hạt trao đổi nhiệt với lớp chất lỏng tại vị trí của nó
+                let fluidT = getFluidTempAtY(p.pos.y);
+                p.temp += (fluidT - p.temp) * 0.15;
+
+                // Nếu hạt chạm đáy nồi (nơi tiếp xúc trực tiếp mâm nhiệt đỏ)
+                let halfH = potHeight / 2 - p.radius;
+                if (p.pos.y <= -halfH + 1.8) {
+                    p.temp += (bottomPlateTemp - p.temp) * 0.35;
+                }
+                p.temp = Math.max(0.1, Math.min(5.0, p.temp));
+
+                // --- Phương trình Langevin với Nhiệt Độ Cục Bộ của chính hạt ---
+                let localT = p.temp;
+                let sigma = Math.sqrt((2 * gamma * localT) / p.mass) * 0.4;
+
+                let noiseForce = new THREE.Vector3(
+                    randn_bm() * sigma,
+                    randn_bm() * sigma,
+                    randn_bm() * sigma
+                );
+
+                let dragForce = p.vel.clone().multiplyScalar(-gamma / p.mass * dtStep);
+
+                // Lực nổi nhiệt (Buoyancy/Đối lưu): hạt nóng nhẹ hơn nên nổi nhẹ lên trên
+                let buoyancyForce = new THREE.Vector3(0, (localT - 0.1) * 0.015, 0);
+
+                p.vel.add(dragForce).add(noiseForce).add(buoyancyForce);
+                p.pos.add(p.vel.clone().multiplyScalar(dtStep));
+
+                // Cập nhật màu sắc mesh của hạt theo nhiệt độ cục bộ
+                if (!p.isTracked) {
+                    let tRatio = Math.max(0, Math.min(1.0, (p.temp - 0.1) / 4.9));
+                    // Lạnh: xanh cyan (#38bdf8), Nóng: cam đỏ rực (#ef4444)
+                    let r = 0.22 + tRatio * 0.78;
+                    let g = 0.74 - tRatio * 0.45;
+                    let b = 0.97 - tRatio * 0.85;
+                    p.mesh.material.color.setRGB(r, g, b);
+                } else {
+                    let tRatio = Math.max(0, Math.min(1.0, (p.temp - 0.1) / 4.9));
+                    p.mesh.material.emissiveIntensity = 0.2 + tRatio * 0.8;
+                }
+
+                // 1. Va chạm đàn hồi với thành bình hình trụ
+                if (p.pos.y > halfH) { p.pos.y = halfH; p.vel.y *= -1; }
+                if (p.pos.y < -halfH) { p.pos.y = -halfH; p.vel.y *= -1; }
+
+                let maxR = potRadius - p.radius;
+                let currentR = Math.sqrt(p.pos.x * p.pos.x + p.pos.z * p.pos.z);
+
+                if (currentR > maxR) {
+                    let nx = p.pos.x / currentR;
+                    let nz = p.pos.z / currentR;
+                    p.pos.x = nx * maxR;
+                    p.pos.z = nz * maxR;
+
+                    let dot = p.vel.x * nx + p.vel.z * nz;
+                    if (dot > 0) {
+                        p.vel.x -= 2 * dot * nx;
+                        p.vel.z -= 2 * dot * nz;
+                    }
+                }
+
+                // 2. Va chạm đàn hồi & Trao đổi nhiệt năng giữa các hạt
+                for (let j = i + 1; j < particles.length; j++) {
+                    let p2 = particles[j];
+                    let distVec = new THREE.Vector3().subVectors(p2.pos, p.pos);
+                    let distance = distVec.length();
+                    let minDist = p.radius + p2.radius;
+
+                    if (distance < minDist) {
+                        let overlap = 0.5 * (minDist - distance);
+                        let normal = distVec.clone().normalize();
+                        p.pos.addScaledVector(normal, -overlap);
+                        p2.pos.addScaledVector(normal, overlap);
+
+                        let kx = p.vel.x - p2.vel.x;
+                        let ky = p.vel.y - p2.vel.y;
+                        let kz = p.vel.z - p2.vel.z;
+                        let pn = kx * normal.x + ky * normal.y + kz * normal.z;
+
+                        if (pn > 0) {
+                            let m1 = p.mass;
+                            let m2 = p2.mass;
+                            let factor = (2 * pn) / (m1 + m2);
+
+                            p.vel.addScaledVector(normal, -factor * m2);
+                            p2.vel.addScaledVector(normal, factor * m1);
+
+                            // Trao đổi nhiệt năng dẫn nhiệt khi va chạm
+                            let dTemp = (p2.temp - p.temp) * 0.25;
+                            p.temp += dTemp;
+                            p2.temp -= dTemp;
+                        }
+                    }
+                }
+
+                p.mesh.position.copy(p.pos);
+
+                // Cập nhật vết đường đi
+                if (p.isTracked && params.showTrails) {
+                    let trail = trackedLines[i];
+                    trail.points.push(p.pos.clone());
+                    if (trail.points.length > 60) trail.points.shift();
+
+                    const ptsGeo = new THREE.BufferGeometry().setFromPoints(trail.points);
+                    trail.mesh.geometry.dispose();
+                    trail.mesh.geometry = ptsGeo;
+                }
+            }
+
+            if (controls) controls.update();
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            if (!inMicroView || !camera || !renderer) return;
+            const container = document.getElementById('canvas-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        // Khởi tạo phiếu câu hỏi và cơ chế tự trượt bảng khi trang tải xong
+        window.addEventListener('DOMContentLoaded', () => {
+            renderQuizCards();
+            setupControlsPanelAutoSlide();
+        });
+    </script>
+</body>
+
+</html>

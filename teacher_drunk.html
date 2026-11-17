@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bảng Điều Hành Giáo Viên - Mô Phỏng STEM Random Walk</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Plotly.js CDN -->
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <!-- QRCode CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+            color: #f1f5f9;
+            overflow-x: hidden;
+        }
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #38bdf8, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        
+        input[type=range] { accent-color: #818cf8; }
+
+        .tab-btn {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #94a3b8;
+            transition: all 0.2s ease;
+        }
+        .tab-btn:hover {
+            background: rgba(51, 65, 85, 0.7);
+            color: #ffffff;
+            border-color: rgba(129, 140, 248, 0.4);
+        }
+        .tab-btn.active {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(168, 85, 247, 0.35));
+            border-color: #818cf8;
+            color: #ffffff;
+            box-shadow: 0 0 18px rgba(129, 140, 248, 0.3);
+        }
+
+        .stat-card {
+            border-left: 4px solid #6366f1;
+        }
+        .correct-badge {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+        .wrong-badge {
+            background: rgba(244, 63, 94, 0.2);
+            color: #fb7185;
+            border: 1px solid rgba(244, 63, 94, 0.4);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-3 md:p-6 gap-5">
+
+    <!-- Header Điều Hành của Thầy/Cô -->
+    <header class="w-full max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 glass-panel p-4 md:p-5 rounded-2xl">
+        <div class="flex items-center gap-3.5">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-2xl shadow-lg shadow-indigo-600/30">
+                👨‍🏫
+            </div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-xl md:text-2xl font-bold tracking-tight">
+                        <span class="gradient-text">Trung Tâm Giảng Dạy STEM</span>
+                    </h1>
+                    <select onchange="window.location.href=this.value" class="bg-slate-800 border border-slate-700 text-indigo-300 text-xs font-bold rounded-lg px-2.5 py-1 outline-none cursor-pointer">
+                        <option value="teacher_drunk.html" selected>🍻 Bài: Gã Say Rượu (Drunk)</option>
+                        <option value="teacher_cooking.html">🍳 Bài: Nấu Ăn (Cooking)</option>
+                        <option value="portal.html">🌐 Cổng STEM Hub</option>
+                    </select>
+                </div>
+                <p class="text-slate-400 text-xs md:text-sm">Bài toán Gã say rượu (Random Walk 1D, 2D & 3D) • Thu thập & Phân tích câu trả lời theo thời gian thực</p>
+            </div>
+        </div>
+
+        <!-- Trạng thái kết nối & QR Code -->
+        <div class="flex flex-wrap items-center gap-2.5">
+            <div id="connStatusBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="connStatusText">Đang kết nối Server...</span>
+            </div>
+
+            <button onclick="openQRModal()" class="flex items-center gap-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-400/40 text-indigo-200 text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-all shadow-sm">
+                <span>📱</span> Mã QR Học sinh
+            </button>
+
+            <button onclick="copyStudentUrl()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold px-3 py-1.5 rounded-xl transition-all">
+                <span>📋</span> <span id="copyBtnText">Copy Link</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Thanh Điều Hướng 3 Tabs Lớn -->
+    <nav class="w-full max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-3">
+        <div class="flex flex-wrap gap-2.5">
+            <button id="tabBtnAnalytics" onclick="switchTab('analytics')" class="tab-btn active px-4 py-2.5 rounded-xl font-semibold text-xs md:text-sm flex items-center gap-2">
+                <span>📊</span> Thu Thập & Biểu Đồ Câu Trả Lời
+                <span id="badgeSubmissions" class="bg-indigo-500/30 text-indigo-300 px-2 py-0.5 rounded-full text-xs">0 đã nộp</span>
+            </button>
+            <button id="tabBtnSim" onclick="switchTab('sim')" class="tab-btn px-4 py-2.5 rounded-xl font-semibold text-xs md:text-sm flex items-center gap-2">
+                <span>🔬</span> Mô Phỏng Mẫu Giảng Dạy
+                <span id="broadcastBadge" class="hidden bg-rose-500/30 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded-full text-xs animate-pulse">📡 Đang phát sóng</span>
+            </button>
+            <button id="tabBtnStudents" onclick="switchTab('students')" class="tab-btn px-4 py-2.5 rounded-xl font-semibold text-xs md:text-sm flex items-center gap-2">
+                <span>👥</span> Danh Sách Bài Làm Chi Tiết
+            </button>
+        </div>
+
+        <div class="text-xs text-slate-400 flex items-center gap-2">
+            <span>Mạng LAN IP:</span>
+            <code id="displayLocalIp" class="bg-slate-800 px-2 py-1 rounded text-indigo-300 font-mono">127.0.0.1:8000</code>
+        </div>
+    </nav>
+
+    <!-- ============================================================== -->
+    <!-- TAB 1: THU THẬP & BIỂU ĐỒ CÂU TRẢ LỜI CỦA HỌC SINH -->
+    <!-- ============================================================== -->
+    <main id="viewAnalytics" class="w-full max-w-7xl mx-auto flex flex-col gap-5">
+        
+        <!-- 4 Thẻ Chỉ Số KPI Tóm Tắt -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="glass-panel p-4 rounded-2xl stat-card border-l-cyan-400">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Học sinh trong phòng</p>
+                <div class="flex items-baseline justify-between mt-2">
+                    <span id="kpiTotalStudents" class="text-3xl font-extrabold text-white">0</span>
+                    <span class="text-xs text-cyan-400 font-medium">Đang trực tuyến</span>
+                </div>
+            </div>
+
+            <div class="glass-panel p-4 rounded-2xl stat-card border-l-indigo-500">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Số bài đã nộp</p>
+                <div class="flex items-baseline justify-between mt-2">
+                    <span id="kpiSubmittedCount" class="text-3xl font-extrabold text-white">0</span>
+                    <span id="kpiSubmitRate" class="text-xs text-indigo-400 font-medium">0% tiến độ</span>
+                </div>
+            </div>
+
+            <div class="glass-panel p-4 rounded-2xl stat-card border-l-emerald-400">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Điểm trung bình lớp</p>
+                <div class="flex items-baseline justify-between mt-2">
+                    <span id="kpiAvgScore" class="text-3xl font-extrabold text-white">0.0</span>
+                    <span class="text-xs text-emerald-400 font-medium">Thang điểm 5</span>
+                </div>
+            </div>
+
+            <div class="glass-panel p-4 rounded-2xl stat-card border-l-purple-400">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Trạng thái phiếu dự đoán</p>
+                <div class="flex items-baseline justify-between mt-2">
+                    <span id="kpiQuizStatus" class="text-sm font-bold text-amber-400">Đang nhận bài</span>
+                    <span id="kpiAnswerLockStatus" class="text-xs text-slate-400 font-medium">Chưa mở đáp án</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Thanh Nút Hành Động Điều Khiển Phiên Học -->
+        <div class="glass-panel p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-slate-900 via-indigo-950/20 to-slate-900">
+            <div class="flex flex-wrap items-center gap-2.5">
+                <!-- Nút Mở khóa đáp án -->
+                <button id="btnUnlockAnswers" onclick="toggleUnlockAnswers()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs md:text-sm px-4 py-2 rounded-xl transition-all shadow-lg shadow-indigo-600/30 flex items-center gap-1.5">
+                    <span id="unlockIcon">🔓</span> <span id="unlockText">Mở Khóa Đáp Án Cho Học Sinh</span>
+                </button>
+
+                <!-- Nút Khóa / Mở nhận bài -->
+                <button id="btnToggleAccepting" onclick="toggleAccepting()" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-semibold text-xs md:text-sm px-4 py-2 rounded-xl transition-all flex items-center gap-1.5">
+                    <span id="acceptingIcon">🛑</span> <span id="acceptingText">Khóa Cổng Nhận Bài</span>
+                </button>
+
+                <!-- Nút Demo Học sinh ảo (Rất quan trọng cho báo cáo/seminar) -->
+                <button onclick="generateMockStudents()" class="bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 font-semibold text-xs md:text-sm px-4 py-2 rounded-xl transition-all flex items-center gap-1.5" title="Tạo 25 học sinh ảo để thử nghiệm ngay mà không cần nhiều thiết bị">
+                    <span>🎲</span> Tạo 25 Học Sinh Mẫu (Demo)
+                </button>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="resetSession()" class="bg-rose-900/30 hover:bg-rose-900/50 border border-rose-500/30 text-rose-300 font-semibold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1">
+                    <span>🔄</span> Làm Mới Phiên
+                </button>
+                <button onclick="exportCSV()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-semibold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1">
+                    <span>📥</span> Xuất File CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- Biểu đồ Phân Bố Điểm Số Chung -->
+        <div class="glass-panel p-5 rounded-2xl flex flex-col gap-3">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <span>📈</span> Phổ Điểm Dự Đoán Của Toàn Lớp (Thang 0 - 5 Điểm)
+                </h3>
+                <span class="text-xs text-slate-400">Cập nhật thời gian thực</span>
+            </div>
+            <div id="chartScoreDist" class="w-full h-[220px]"></div>
+        </div>
+
+        <!-- 5 Biểu Đồ Thống Kê Chi Tiết Từng Câu Hỏi -->
+        <div class="flex flex-col gap-4">
+            <h3 class="text-lg font-bold text-slate-200 flex items-center gap-2">
+                <span>📊</span> Tỷ Lệ Lựa Chọn Phương Án (A, B, C, D) Từng Câu Hỏi
+            </h3>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <!-- Câu 1 -->
+                <div class="glass-panel p-4 rounded-2xl flex flex-col gap-2">
+                    <div class="flex justify-between items-start gap-2">
+                        <div>
+                            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wide">Câu 1 • Kỳ vọng vị trí trung bình</span>
+                            <h4 class="text-sm font-semibold text-white mt-0.5">Vị trí trung bình của 50 gã say sau 200 bước sẽ ở đâu?</h4>
+                        </div>
+                        <span id="q1RateBadge" class="text-xs font-bold px-2 py-0.5 rounded correct-badge whitespace-nowrap">Đúng: 0%</span>
+                    </div>
+                    <div id="chartQ1" class="w-full h-[200px]"></div>
+                    <p class="text-[11px] text-slate-400 border-t border-slate-800 pt-1.5"><b class="text-emerald-400">Đáp án chuẩn: A</b> (Xấp xỉ tại điểm gốc (0,0) do đối xứng triệt tiêu E[X]=0).</p>
+                </div>
+
+                <!-- Câu 2 -->
+                <div class="glass-panel p-4 rounded-2xl flex flex-col gap-2">
+                    <div class="flex justify-between items-start gap-2">
+                        <div>
+                            <span class="text-xs font-bold text-indigo-400 uppercase tracking-wide">Câu 2 • Quy luật khoảng cách</span>
+                            <h4 class="text-sm font-semibold text-white mt-0.5">Số bước tăng 4 lần (100 → 400), khoảng cách trung bình tăng bao nhiêu?</h4>
+                        </div>
+                        <span id="q2RateBadge" class="text-xs font-bold px-2 py-0.5 rounded correct-badge whitespace-nowrap">Đúng: 0%</span>
+                    </div>
+                    <div id="chartQ2" class="w-full h-[200px]"></div>
+                    <p class="text-[11px] text-slate-400 border-t border-slate-800 pt-1.5"><b class="text-emerald-400">Đáp án chuẩn: A</b> (Tăng khoảng 2 lần, tỉ lệ căn bậc hai d ∝ √N theo định luật Einstein).</p>
+                </div>
+
+                <!-- Câu 3 -->
+                <div class="glass-panel p-4 rounded-2xl flex flex-col gap-2">
+                    <div class="flex justify-between items-start gap-2">
+                        <div>
+                            <span class="text-xs font-bold text-purple-400 uppercase tracking-wide">Câu 3 • Số chiều & Định lý Pólya</span>
+                            <h4 class="text-sm font-semibold text-white mt-0.5">Xác suất quay trở về điểm gốc trong không gian 1D, 2D và 3D?</h4>
+                        </div>
+                        <span id="q3RateBadge" class="text-xs font-bold px-2 py-0.5 rounded correct-badge whitespace-nowrap">Đúng: 0%</span>
+                    </div>
+                    <div id="chartQ3" class="w-full h-[200px]"></div>
+                    <p class="text-[11px] text-slate-400 border-t border-slate-800 pt-1.5"><b class="text-emerald-400">Đáp án chuẩn: A</b> (1D & 2D về nhà 100%; ở 3D xác suất trở về chỉ ~34% - Pólya 1921).</p>
+                </div>
+
+                <!-- Câu 4 -->
+                <div class="glass-panel p-4 rounded-2xl flex flex-col gap-2">
+                    <div class="flex justify-between items-start gap-2">
+                        <div>
+                            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wide">Câu 4 • Mật độ phân bố đám đông</span>
+                            <h4 class="text-sm font-semibold text-white mt-0.5">Hình thái phân bố không gian của 50 gã say sau khi đi hết 200 bước?</h4>
+                        </div>
+                        <span id="q4RateBadge" class="text-xs font-bold px-2 py-0.5 rounded correct-badge whitespace-nowrap">Đúng: 0%</span>
+                    </div>
+                    <div id="chartQ4" class="w-full h-[200px]"></div>
+                    <p class="text-[11px] text-slate-400 border-t border-slate-800 pt-1.5"><b class="text-emerald-400">Đáp án chuẩn: A</b> (Phân bố Gauss hình chuông tập trung đông nhất gần gốc và loang dần).</p>
+                </div>
+
+                <!-- Câu 5 -->
+                <div class="glass-panel p-4 rounded-2xl flex flex-col gap-2 lg:col-span-2">
+                    <div class="flex justify-between items-start gap-2">
+                        <div>
+                            <span class="text-xs font-bold text-amber-400 uppercase tracking-wide">Câu 5 • Bản chất hình học quỹ đạo</span>
+                            <h4 class="text-sm font-semibold text-white mt-0.5">Đặc điểm hình học của từng đường nét di chuyển của gã say trên biểu đồ?</h4>
+                        </div>
+                        <span id="q5RateBadge" class="text-xs font-bold px-2 py-0.5 rounded correct-badge whitespace-nowrap">Đúng: 0%</span>
+                    </div>
+                    <div id="chartQ5" class="w-full h-[200px]"></div>
+                    <p class="text-[11px] text-slate-400 border-t border-slate-800 pt-1.5"><b class="text-emerald-400">Đáp án chuẩn: A</b> (Đường gấp khúc fractal tự cắt chính mình, liên tục nhưng không khả vi).</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ============================================================== -->
+    <!-- TAB 2: MÔ PHỎNG MẪU GIẢNG DẠY (TEACHER MASTER SIMULATION) -->
+    <!-- ============================================================== -->
+    <main id="viewSim" class="w-full max-w-7xl mx-auto flex flex-col gap-5" style="display: none;">
+        <!-- Banner Phát Sóng Trực Tiếp -->
+        <div class="glass-panel p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-slate-900">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">📡</span>
+                <div>
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        Chế Độ Phát Sóng Mô Phỏng Trực Tiếp (Live Broadcast Sync)
+                    </h3>
+                    <p class="text-xs text-slate-400">Khi bật, mọi thao tác chạy Play/Pause, đổi chiều 1D/2D/3D của Giáo viên sẽ tự động đồng bộ sang màn hình của tất cả học sinh!</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="broadcastToggle" onchange="toggleBroadcast(this.checked)" class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+                    <span id="broadcastLabel" class="ml-2.5 text-xs font-semibold text-slate-300">Tắt phát sóng</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Khung Mô Phỏng Chính (Controls + 2 Charts) -->
+        <div class="grid grid-cols-1 xl:grid-cols-4 gap-5">
+            <!-- Sidebar Điều Khiển -->
+            <aside class="glass-panel rounded-2xl p-5 xl:col-span-1 flex flex-col gap-4 h-fit">
+                <div id="simContextBox" class="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700">
+                    <h3 id="simContextTitle" class="font-bold text-base text-indigo-400 mb-1 flex items-center gap-2">
+                        <span>🏙️</span> Quảng trường (2D)
+                    </h3>
+                    <p id="simContextDesc" class="text-xs text-slate-300 leading-relaxed">
+                        Gã say ngẫu nhiên đi 1 trong 4 hướng (Bắc, Nam, Đông, Tây).
+                    </p>
+                </div>
+
+                <div class="flex flex-col gap-3.5">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-200 mb-1">Không gian:</label>
+                        <select id="simDimSelect" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="1">1D - Con hẻm hẹp (2 Hướng: Tiến / Lùi)</option>
+                            <option value="2" selected>2D - Quảng trường (4 Hướng: Đông, Tây, Nam, Bắc)</option>
+                            <option value="3">3D - Không trọng lực (6 Hướng trong không gian)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-xs font-semibold text-slate-200">Số gã say (Hạt):</label>
+                            <span id="simDrunksVal" class="text-xs font-bold text-blue-400">10</span>
+                        </div>
+                        <input type="range" id="simDrunks" min="1" max="50" value="10" class="w-full">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-xs font-semibold text-slate-200">Số bước di chuyển:</label>
+                            <span id="simStepsVal" class="text-xs font-bold text-fuchsia-400">200</span>
+                        </div>
+                        <input type="range" id="simSteps" min="10" max="500" value="200" class="w-full">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-xs font-semibold text-slate-200">Tốc độ (FPS):</label>
+                            <span id="simSpeedVal" class="text-xs font-bold text-emerald-400">30</span>
+                        </div>
+                        <input type="range" id="simSpeed" min="1" max="60" value="30" class="w-full">
+                    </div>
+                </div>
+
+                <!-- Nút Điều Khiển Animation -->
+                <div class="grid grid-cols-2 gap-2.5 mt-1">
+                    <button id="simBtnReset" onclick="resetSim()" class="col-span-2 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 px-3 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5">
+                        🔄 Tạo dữ liệu mới
+                    </button>
+                    <button id="simBtnPlay" onclick="playSim()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-3 rounded-lg text-xs shadow-lg transition-colors flex items-center justify-center gap-1">
+                        ▶ Chạy
+                    </button>
+                    <button id="simBtnPause" onclick="pauseSim()" class="bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 px-3 rounded-lg text-xs shadow-lg transition-colors flex items-center justify-center gap-1">
+                        ⏸ Tạm dừng
+                    </button>
+                </div>
+
+                <div class="text-center mt-1">
+                    <p class="text-xs text-slate-400">Bước: <span id="simProgressStep" class="font-bold text-white">0</span> / <span id="simProgressTotal">200</span></p>
+                </div>
+
+                <!-- Hộp Gợi Ý Sư Phạm Dành Cho Giáo Viên -->
+                <div class="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/30 text-xs text-slate-300 leading-relaxed mt-2">
+                    <b class="text-indigo-400 flex items-center gap-1 mb-1">💡 Gợi ý trình chiếu sư phạm:</b>
+                    <ul class="list-disc list-inside space-y-1 text-[11px] text-slate-300">
+                        <li><b>Kiểm chứng Câu 1 & 4:</b> Đẩy số hạt lên 30-50, cho chạy hết 200 bước để học sinh thấy tâm hạt tụ quanh gốc (0,0) và loang theo hình Gauss.</li>
+                        <li><b>Kiểm chứng Câu 2:</b> So sánh khoảng cách ở bước 50 và bước 200 (tăng 4 lần bước, d chỉ tăng khoảng 2 lần).</li>
+                        <li><b>Kiểm chứng Câu 3:</b> Chuyển sang 3D để học sinh xoay mô hình và quan sát sự thất lạc của hạt.</li>
+                    </ul>
+                </div>
+            </aside>
+
+            <!-- 2 Biểu Đồ Mô Phỏng Plotly -->
+            <div class="glass-panel rounded-2xl xl:col-span-3 min-h-[550px] p-4 flex flex-col">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full h-full flex-grow">
+                    <div id="plotlyTrajChart" class="w-full h-full min-h-[350px]"></div>
+                    <div id="plotlyDistChart" class="w-full h-full min-h-[350px]"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ============================================================== -->
+    <!-- TAB 3: DANH SÁCH BÀI LÀM CHI TIẾT TỪNG HỌC SINH -->
+    <!-- ============================================================== -->
+    <main id="viewStudents" class="w-full max-w-7xl mx-auto flex flex-col gap-4" style="display: none;">
+        <div class="glass-panel p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <span>📋</span> Chi Tiết Bài Làm Của Từng Học Sinh
+                </h3>
+                <span id="studentsCountBadge" class="bg-indigo-500/20 text-indigo-300 text-xs px-2.5 py-0.5 rounded-full border border-indigo-400/30">0 học sinh</span>
+            </div>
+
+            <!-- Bộ lọc tìm kiếm -->
+            <div class="flex items-center gap-2.5">
+                <input type="text" id="searchStudentInput" oninput="filterStudentsTable()" placeholder="🔍 Tìm tên học sinh..." class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-indigo-500">
+                <select id="scoreFilterSelect" onchange="filterStudentsTable()" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none">
+                    <option value="all">Tất cả điểm số</option>
+                    <option value="5">Tuyệt đối (5/5)</option>
+                    <option value="high">Khá giỏi (4 - 5 điểm)</option>
+                    <option value="low">Cần củng cố (< 3 điểm)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Bảng Dữ Liệu Học Sinh -->
+        <div class="glass-panel rounded-2xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-800/80 text-slate-400 uppercase font-bold text-[11px] border-b border-slate-700">
+                        <tr>
+                            <th class="p-3.5">Học sinh</th>
+                            <th class="p-3.5 text-center">Trạng thái</th>
+                            <th class="p-3.5 text-center">Điểm số</th>
+                            <th class="p-3.5 text-center">Câu 1</th>
+                            <th class="p-3.5 text-center">Câu 2</th>
+                            <th class="p-3.5 text-center">Câu 3</th>
+                            <th class="p-3.5 text-center">Câu 4</th>
+                            <th class="p-3.5 text-center">Câu 5</th>
+                            <th class="p-3.5">Lập luận / Ghi chú suy nghĩ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsTableBody" class="divide-y divide-slate-800">
+                        <!-- Render tự động bằng Javascript -->
+                        <tr>
+                            <td colspan="9" class="p-6 text-center text-slate-500">Chưa có học sinh nào kết nối hoặc nộp bài.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- ============================================================== -->
+    <!-- MODAL MÃ QR KẾT NỐI CHO HỌC SINH -->
+    <!-- ============================================================== -->
+    <div id="qrModal" class="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 z-50 hidden">
+        <div class="glass-panel p-6 rounded-3xl max-w-sm w-full border border-indigo-500/40 flex flex-col items-center gap-4 text-center shadow-2xl">
+            <div class="w-10 h-10 rounded-full bg-indigo-600/30 text-indigo-400 flex items-center justify-center text-xl">
+                📱
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-white">Quét Mã QR Vào Lớp Học</h3>
+                <p class="text-xs text-slate-400 mt-0.5">Học sinh dùng Camera điện thoại để mở giao diện làm bài</p>
+            </div>
+
+            <!-- Vùng Render QR Code -->
+            <div class="p-3 bg-white rounded-2xl shadow-inner my-1">
+                <div id="qrcodeContainer"></div>
+            </div>
+
+            <div class="w-full bg-slate-900/90 border border-slate-700 rounded-xl p-2.5 text-left">
+                <div class="text-[10px] text-slate-400 font-semibold uppercase">Hoặc truy cập link trực tiếp:</div>
+                <div id="modalStudentUrl" class="text-xs font-mono text-cyan-300 break-all select-all font-bold mt-1">http://...</div>
+            </div>
+
+            <div class="flex gap-2 w-full">
+                <button onclick="copyStudentUrl()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 rounded-xl text-xs transition-colors">
+                    Sao chép liên kết
+                </button>
+                <button onclick="closeQRModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2 px-4 rounded-xl text-xs transition-colors">
+                    Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="appToast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/95 border border-indigo-500/40 text-white px-5 py-2.5 rounded-full text-xs font-medium shadow-2xl opacity-0 pointer-events-none transition-all duration-300 z-50"></div>
+
+    <!-- ============================================================== -->
+    <!-- JAVASCRIPT ĐIỀU HÀNH & KẾT NỐI WEBSOCKET -->
+    <!-- ============================================================== -->
+    <script>
+        // --- 1. Biến Toàn Cục & Cấu Hình ---
+        let ws = null;
+        let serverConfig = {
+            ip: window.location.hostname || '127.0.0.1',
+            port: window.location.port || '8000',
+            studentUrl: ''
+        };
+        serverConfig.studentUrl = `http://${serverConfig.ip}:${serverConfig.port}/student.html`;
+
+        let currentTab = 'analytics';
+        let latestStats = null;
+        let isBroadcasting = false;
+        let qrcodeObj = null;
+
+        // Trạng thái mô phỏng mẫu của Giáo viên
+        let simState = {
+            dim: 2,
+            drunks: 10,
+            steps: 200,
+            fps: 30,
+            currentStep: 0,
+            isPlaying: false,
+            timer: null,
+            walksData: [],
+            maxLimit: 10,
+            maxDist: 10
+        };
+
+        const colorPalette = [
+            '#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', 
+            '#ec4899', '#14b8a6', '#f43f5e', '#84cc16', '#0ea5e9',
+            '#d946ef', '#f97316', '#06b6d4', '#eab308', '#6366f1'
+        ];
+        function getColor(i) { return colorPalette[i % colorPalette.length]; }
+
+        // --- 2. Khởi tạo WebSocket kết nối Server ---
+        function initWebSocket() {
+            const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host || '127.0.0.1:8000';
+            const wsUrl = `${proto}//${host}/ws`;
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                document.getElementById('connStatusText').innerText = "Đã kết nối Server";
+                document.getElementById('connStatusBadge').className = "flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/60 text-emerald-400 border border-emerald-500/30";
+                
+                // Đăng ký vai trò Teacher với máy chủ
+                ws.send(JSON.stringify({ type: "teacher_join" }));
+                showToast("✅ Kết nối máy chủ thành công!");
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleServerMessage(data);
+                } catch (e) {
+                    console.error("Lỗi parse WS:", e);
+                }
+            };
+
+            ws.onclose = () => {
+                document.getElementById('connStatusText').innerText = "Mất kết nối Server";
+                document.getElementById('connStatusBadge').className = "flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-950/60 text-rose-400 border border-rose-500/30";
+                // Tự động thử kết nối lại sau 2.5 giây
+                setTimeout(initWebSocket, 2500);
+            };
+
+            ws.onerror = (err) => {
+                console.error("Lỗi kết nối WebSocket:", err);
+            };
+        }
+
+        function handleServerMessage(msg) {
+            if (msg.type === "init_teacher") {
+                serverConfig.ip = msg.local_ip || serverConfig.ip;
+                serverConfig.port = msg.port || serverConfig.port;
+                serverConfig.studentUrl = `http://${serverConfig.ip}:${serverConfig.port}/student.html`;
+                document.getElementById('displayLocalIp').innerText = `${serverConfig.ip}:${serverConfig.port}`;
+                document.getElementById('modalStudentUrl').innerText = serverConfig.studentUrl;
+                updateStatsUI(msg.stats);
+            } 
+            else if (msg.type === "stats_update") {
+                updateStatsUI(msg.stats);
+            }
+        }
+
+        // --- 3. Cập nhật Giao diện & Thống kê khi có dữ liệu mới ---
+        function updateStatsUI(stats) {
+            if (!stats) return;
+            latestStats = stats;
+
+            // KPI Cards
+            document.getElementById('kpiTotalStudents').innerText = stats.total_students;
+            document.getElementById('kpiSubmittedCount').innerText = stats.submitted_count;
+            document.getElementById('badgeSubmissions').innerText = `${stats.submitted_count} đã nộp`;
+            
+            const submitPct = stats.total_students > 0 ? Math.round(stats.submitted_count / stats.total_students * 100) : 0;
+            document.getElementById('kpiSubmitRate').innerText = `${submitPct}% tiến độ`;
+            document.getElementById('kpiAvgScore').innerText = stats.avg_score.toFixed(1);
+
+            // Cập nhật trạng thái Mở khóa / Nhận bài
+            const unlockBtn = document.getElementById('btnUnlockAnswers');
+            const unlockText = document.getElementById('unlockText');
+            const unlockIcon = document.getElementById('unlockIcon');
+            const lockStatus = document.getElementById('kpiAnswerLockStatus');
+            
+            if (stats.quiz_unlocked) {
+                unlockText.innerText = "Khóa Đáp Án (Học sinh đang xem)";
+                unlockIcon.innerText = "🔒";
+                unlockBtn.className = "bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs md:text-sm px-4 py-2 rounded-xl transition-all shadow-lg flex items-center gap-1.5";
+                lockStatus.innerText = "Đã mở khóa đáp án";
+                lockStatus.className = "text-xs text-emerald-400 font-medium";
+            } else {
+                unlockText.innerText = "Mở Khóa Đáp Án Cho Học Sinh";
+                unlockIcon.innerText = "🔓";
+                unlockBtn.className = "bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs md:text-sm px-4 py-2 rounded-xl transition-all shadow-lg shadow-indigo-600/30 flex items-center gap-1.5";
+                lockStatus.innerText = "Chưa mở đáp án";
+                lockStatus.className = "text-xs text-slate-400 font-medium";
+            }
+
+            const acceptingBtn = document.getElementById('btnToggleAccepting');
+            const acceptingText = document.getElementById('acceptingText');
+            const acceptingIcon = document.getElementById('acceptingIcon');
+            const quizStatus = document.getElementById('kpiQuizStatus');
+
+            if (stats.quiz_accepting) {
+                acceptingText.innerText = "Khóa Cổng Nhận Bài";
+                acceptingIcon.innerText = "🛑";
+                quizStatus.innerText = "Đang nhận bài";
+                quizStatus.className = "text-sm font-bold text-emerald-400";
+            } else {
+                acceptingText.innerText = "Mở Cổng Nhận Bài";
+                acceptingIcon.innerText = "▶";
+                quizStatus.innerText = "Đã khóa nộp bài";
+                quizStatus.className = "text-sm font-bold text-rose-400";
+            }
+
+            // Vẽ các biểu đồ thống kê
+            renderScoreDistributionChart(stats.score_distribution);
+            renderQuestionsCharts(stats.questions_stats);
+
+            // Render bảng danh sách học sinh
+            renderStudentsTable(stats.students_list);
+        }
+
+        // --- 4. Vẽ Biểu Đồ Bằng Plotly ---
+        function renderScoreDistributionChart(scoreDist) {
+            const x = ['0 điểm', '1 điểm', '2 điểm', '3 điểm', '4 điểm', '5 điểm (Tuyệt đối)'];
+            const y = [scoreDist[0] || 0, scoreDist[1] || 0, scoreDist[2] || 0, scoreDist[3] || 0, scoreDist[4] || 0, scoreDist[5] || 0];
+
+            const trace = {
+                x: x,
+                y: y,
+                type: 'bar',
+                marker: {
+                    color: ['#f43f5e', '#fb923c', '#facc15', '#38bdf8', '#818cf8', '#10b981'],
+                    line: { color: 'rgba(255,255,255,0.2)', width: 1 }
+                },
+                text: y.map(v => v > 0 ? `${v} HS` : ''),
+                textposition: 'auto',
+                hoverinfo: 'x+y'
+            };
+
+            const layout = {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#e2e8f0', family: 'Inter', size: 11 },
+                margin: { l: 30, r: 20, t: 15, b: 35 },
+                xaxis: { gridcolor: '#1e293b' },
+                yaxis: { title: 'Số học sinh', gridcolor: '#334155', dtick: 2 },
+                showlegend: false
+            };
+
+            Plotly.react('chartScoreDist', [trace], layout, { responsive: true, displayModeBar: false });
+        }
+
+        function renderQuestionsCharts(qStats) {
+            if (!qStats) return;
+
+            qStats.forEach(q => {
+                const elemId = `chartQ${q.id}`;
+                const elem = document.getElementById(elemId);
+                if (!elem) return;
+
+                // Cập nhật badge tỷ lệ đúng
+                const badge = document.getElementById(`q${q.id}RateBadge`);
+                if (badge) {
+                    badge.innerText = `Đúng: ${q.correct_percentage}% (${q.correct_count} HS)`;
+                    if (q.correct_percentage >= 70) badge.className = "text-xs font-bold px-2 py-0.5 rounded correct-badge whitespace-nowrap";
+                    else if (q.correct_percentage >= 40) badge.className = "text-xs font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 whitespace-nowrap";
+                    else badge.className = "text-xs font-bold px-2 py-0.5 rounded wrong-badge whitespace-nowrap";
+                }
+
+                const optionsLabels = ['Phương án A', 'Phương án B', 'Phương án C', 'Phương án D'];
+                const counts = [q.counts[0], q.counts[1], q.counts[2], q.counts[3]];
+                const pcts = [q.percentages[0], q.percentages[1], q.percentages[2], q.percentages[3]];
+
+                // Màu sắc: Đáp án đúng A sẽ có viền sáng xanh lá, các đáp án khác là slate/indigo
+                const colors = ['#10b981', '#64748b', '#64748b', '#64748b'];
+                const borderColors = ['#34d399', 'transparent', 'transparent', 'transparent'];
+
+                const trace = {
+                    x: optionsLabels,
+                    y: counts,
+                    type: 'bar',
+                    marker: {
+                        color: colors,
+                        line: { color: borderColors, width: 2 }
+                    },
+                    text: pcts.map((p, idx) => counts[idx] > 0 ? `${counts[idx]} (${p}%)` : '0'),
+                    textposition: 'auto',
+                    hoverinfo: 'x+y'
+                };
+
+                const layout = {
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(0,0,0,0)',
+                    font: { color: '#cbd5e1', family: 'Inter', size: 10 },
+                    margin: { l: 25, r: 15, t: 10, b: 30 },
+                    xaxis: { gridcolor: '#1e293b' },
+                    yaxis: { gridcolor: '#334155' },
+                    showlegend: false
+                };
+
+                Plotly.react(elemId, [trace], layout, { responsive: true, displayModeBar: false });
+            });
+        }
+
+        // --- 5. Bảng Danh Sách Học Sinh ---
+        function renderStudentsTable(students) {
+            const tbody = document.getElementById('studentsTableBody');
+            const countBadge = document.getElementById('studentsCountBadge');
+            if (!tbody || !students) return;
+
+            countBadge.innerText = `${students.length} học sinh`;
+
+            if (students.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-500">Chưa có học sinh nào kết nối.</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            students.forEach((s, idx) => {
+                const statusBadge = s.submitted 
+                    ? `<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded text-[11px] font-semibold">Đã nộp lúc ${s.submitted_at || ''}</span>`
+                    : `<span class="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded text-[11px]">Đang làm bài</span>`;
+
+                const scoreBadge = s.submitted
+                    ? `<span class="font-extrabold text-sm ${s.score >= 4 ? 'text-emerald-400' : (s.score >= 3 ? 'text-indigo-400' : 'text-rose-400')}">${s.score} / 5</span>`
+                    : `<span class="text-slate-500">-</span>`;
+
+                // Render câu 1 -> 5
+                let qCells = '';
+                for (let q = 1; q <= 5; q++) {
+                    if (s.submitted) {
+                        const isCorrect = s.answers && s.answers[q] === 0;
+                        const optLetter = s.answers && s.answers[q] !== undefined ? ['A', 'B', 'C', 'D'][s.answers[q]] : '-';
+                        if (isCorrect) {
+                            qCells += `<td class="p-3 text-center"><span class="inline-block w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold leading-6">${optLetter} ✔</span></td>`;
+                        } else {
+                            qCells += `<td class="p-3 text-center"><span class="inline-block w-6 h-6 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[11px] font-bold leading-6">${optLetter} ✘</span></td>`;
+                        }
+                    } else {
+                        qCells += `<td class="p-3 text-center text-slate-600">-</td>`;
+                    }
+                }
+
+                // Gộp các ghi chú của học sinh
+                let notesSummary = [];
+                if (s.notes) {
+                    for (let q in s.notes) {
+                        if (s.notes[q] && s.notes[q].trim()) {
+                            notesSummary.push(`<b>C${q}:</b> ${s.notes[q]}`);
+                        }
+                    }
+                }
+                const notesHtml = notesSummary.length > 0 
+                    ? `<div class="max-w-xs truncate text-[11px] text-slate-300" title="${notesSummary.join(' | ')}">${notesSummary.join(' • ')}</div>`
+                    : `<span class="text-slate-600 italic">Không có ghi chú</span>`;
+
+                html += `
+                    <tr class="hover:bg-slate-800/40 transition-colors">
+                        <td class="p-3 font-semibold text-white flex items-center gap-2">
+                            <span>${s.is_mock ? '🤖' : '👤'}</span> ${s.name}
+                        </td>
+                        <td class="p-3 text-center">${statusBadge}</td>
+                        <td class="p-3 text-center">${scoreBadge}</td>
+                        ${qCells}
+                        <td class="p-3">${notesHtml}</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function filterStudentsTable() {
+            if (!latestStats || !latestStats.students_list) return;
+            const query = (document.getElementById('searchStudentInput').value || '').toLowerCase();
+            const filterScore = document.getElementById('scoreFilterSelect').value;
+
+            let filtered = latestStats.students_list.filter(s => {
+                const matchName = s.name.toLowerCase().includes(query);
+                let matchScore = true;
+                if (filterScore === '5') matchScore = (s.score === 5);
+                else if (filterScore === 'high') matchScore = (s.score >= 4);
+                else if (filterScore === 'low') matchScore = (s.score < 3 && s.submitted);
+                return matchName && matchScore;
+            });
+
+            renderStudentsTable(filtered);
+        }
+
+        // --- 6. Các Thao Tác Điều Khiển Của Giáo Viên ---
+        function toggleUnlockAnswers() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            const newState = !latestStats.quiz_unlocked;
+            ws.send(JSON.stringify({ type: "unlock_quiz", unlocked: newState }));
+            showToast(newState ? "🔓 Đã mở khóa đáp án cho cả lớp!" : "🔒 Đã khóa đáp án.");
+        }
+
+        function toggleAccepting() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            const newState = !latestStats.quiz_accepting;
+            ws.send(JSON.stringify({ type: "toggle_accepting", accepting: newState }));
+            showToast(newState ? "▶ Đã mở cổng nhận bài." : "🛑 Đã khóa cổng nhận bài!");
+        }
+
+        function generateMockStudents() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({ type: "generate_mock", count: 25 }));
+            showToast("🎲 Đã tạo 25 học sinh ảo để demo biểu đồ!");
+        }
+
+        function resetSession() {
+            if (!confirm("Thầy/Cô có chắc chắn muốn làm mới phiên học (xóa kết quả để khảo sát lại)?")) return;
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({ type: "reset_session" }));
+            showToast("🔄 Đã làm mới phiên học!");
+        }
+
+        function exportCSV() {
+            if (!latestStats || !latestStats.students_list || latestStats.students_list.length === 0) {
+                alert("Chưa có dữ liệu học sinh để xuất file!");
+                return;
+            }
+            let csv = "Họ và tên,Thời gian nộp,Điểm số (Thang 5),Câu 1,Câu 2,Câu 3,Câu 4,Câu 5,Ghi chú lập luận\n";
+            latestStats.students_list.forEach(s => {
+                const q1 = s.answers && s.answers[1] !== undefined ? ['A','B','C','D'][s.answers[1]] : '';
+                const q2 = s.answers && s.answers[2] !== undefined ? ['A','B','C','D'][s.answers[2]] : '';
+                const q3 = s.answers && s.answers[3] !== undefined ? ['A','B','C','D'][s.answers[3]] : '';
+                const q4 = s.answers && s.answers[4] !== undefined ? ['A','B','C','D'][s.answers[4]] : '';
+                const q5 = s.answers && s.answers[5] !== undefined ? ['A','B','C','D'][s.answers[5]] : '';
+                
+                let notes = [];
+                if (s.notes) {
+                    for (let q in s.notes) if (s.notes[q]) notes.push(`C${q}: ${s.notes[q]}`);
+                }
+                const noteClean = `"${notes.join(' ; ').replace(/"/g, '""')}"`;
+                csv += `"${s.name}","${s.submitted_at || ''}",${s.score || 0},"${q1}","${q2}","${q3}","${q4}","${q5}",${noteClean}\n`;
+            });
+
+            const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Ket_qua_du_doan_STEM_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast("📥 Đã xuất file CSV thành công!");
+        }
+
+        // --- 7. Đổi Tab Giao Diện ---
+        function switchTab(tab) {
+            currentTab = tab;
+            document.getElementById('viewAnalytics').style.display = tab === 'analytics' ? 'flex' : 'none';
+            document.getElementById('viewSim').style.display = tab === 'sim' ? 'flex' : 'none';
+            document.getElementById('viewStudents').style.display = tab === 'students' ? 'flex' : 'none';
+
+            document.getElementById('tabBtnAnalytics').className = `tab-btn px-4 py-2.5 rounded-xl font-semibold text-xs md:text-sm flex items-center gap-2 ${tab === 'analytics' ? 'active' : ''}`;
+            document.getElementById('tabBtnSim').className = `tab-btn px-4 py-2.5 rounded-xl font-semibold text-xs md:text-sm flex items-center gap-2 ${tab === 'sim' ? 'active' : ''}`;
+            document.getElementById('tabBtnStudents').className = `tab-btn px-4 py-2.5 rounded-xl font-semibold text-xs md:text-sm flex items-center gap-2 ${tab === 'students' ? 'active' : ''}`;
+
+            if (tab === 'sim') {
+                setTimeout(() => {
+                    Plotly.Plots.resize('plotlyTrajChart');
+                    Plotly.Plots.resize('plotlyDistChart');
+                }, 50);
+            }
+        }
+
+        // --- 8. QR Code & Chia Sẻ Link ---
+        function openQRModal() {
+            document.getElementById('qrModal').classList.remove('hidden');
+            const container = document.getElementById('qrcodeContainer');
+            container.innerHTML = '';
+            if (typeof QRCode !== 'undefined') {
+                qrcodeObj = new QRCode(container, {
+                    text: serverConfig.studentUrl,
+                    width: 200,
+                    height: 200,
+                    colorDark: "#0f172a",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+            } else {
+                // Fallback nếu không có CDN QRCode
+                container.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(serverConfig.studentUrl)}" alt="QR Code" class="w-[200px] h-[200px]">`;
+            }
+        }
+
+        function closeQRModal() {
+            document.getElementById('qrModal').classList.add('hidden');
+        }
+
+        function copyStudentUrl() {
+            navigator.clipboard.writeText(serverConfig.studentUrl).then(() => {
+                const btn = document.getElementById('copyBtnText');
+                if (btn) btn.innerText = "Đã copy!";
+                showToast("📋 Đã copy link tham gia của Học sinh!");
+                setTimeout(() => { if (btn) btn.innerText = "Copy Link"; }, 2000);
+            });
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('appToast');
+            if (!toast) return;
+            toast.innerHTML = msg;
+            toast.style.opacity = '1';
+            toast.style.transform = 'translate(-50%, 0)';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translate(-50%, 20px)';
+            }, 2600);
+        }
+
+        // --- 9. Thuật Toán Mô Phỏng Mẫu Giảng Dạy (Sim Engine) ---
+        function updateSimContext() {
+            simState.dim = parseInt(document.getElementById('simDimSelect').value);
+            const title = document.getElementById('simContextTitle');
+            const desc = document.getElementById('simContextDesc');
+            if (simState.dim === 1) {
+                title.innerHTML = "🚶‍♂️ Con hẻm hẹp (1D)";
+                desc.innerText = "Gã say chỉ tiến hoặc lùi với xác suất 50-50. Đồ thị trái vẽ Vị trí theo Thời gian.";
+            } else if (simState.dim === 2) {
+                title.innerHTML = "🚶‍♂️ Quảng trường (2D)";
+                desc.innerText = "Gã say đi ngẫu nhiên 4 hướng. Đồ thị trái vẽ mặt bằng quảng trường nhìn từ trên xuống.";
+            } else if (simState.dim === 3) {
+                title.innerHTML = "🚁 Không gian 3D (Drone ngẫu nhiên)";
+                desc.innerText = "Bay hỗn loạn 6 hướng trong không gian. Kiểm chứng định lý George Pólya (xác suất về nhà chỉ ~34%).";
+            }
+        }
+
+        function generateSimWalks() {
+            simState.drunks = parseInt(document.getElementById('simDrunks').value);
+            simState.steps = parseInt(document.getElementById('simSteps').value);
+            document.getElementById('simProgressTotal').innerText = simState.steps;
+
+            simState.walksData = [];
+            simState.maxLimit = 0;
+            simState.maxDist = 0;
+
+            for (let i = 0; i < simState.drunks; i++) {
+                let walk = { t: [0], x: [0], y: [0], z: [0], dist: [0] };
+                let cx = 0, cy = 0, cz = 0;
+
+                for (let s = 1; s <= simState.steps; s++) {
+                    if (simState.dim === 1) {
+                        cx += (Math.random() < 0.5) ? 1 : -1;
+                        cy = 0;
+                    } else if (simState.dim === 2) {
+                        const r = Math.floor(Math.random() * 4);
+                        if (r === 0) cx += 1;
+                        else if (r === 1) cx -= 1;
+                        else if (r === 2) cy += 1;
+                        else cy -= 1;
+                    } else if (simState.dim === 3) {
+                        const r = Math.floor(Math.random() * 6);
+                        if (r === 0) cx += 1;
+                        else if (r === 1) cx -= 1;
+                        else if (r === 2) cy += 1;
+                        else if (r === 3) cy -= 1;
+                        else if (r === 4) cz += 1;
+                        else cz -= 1;
+                    }
+
+                    const dist = Math.sqrt(cx*cx + cy*cy + cz*cz);
+                    walk.t.push(s);
+                    walk.x.push(cx);
+                    walk.y.push(cy);
+                    walk.z.push(cz);
+                    walk.dist.push(dist);
+
+                    const maxCoord = Math.max(Math.abs(cx), Math.abs(cy), Math.abs(cz));
+                    if (maxCoord > simState.maxLimit) simState.maxLimit = maxCoord;
+                    if (dist > simState.maxDist) simState.maxDist = dist;
+                }
+                simState.walksData.push(walk);
+            }
+
+            simState.maxLimit = Math.max(5, simState.maxLimit + 2);
+            simState.maxDist = Math.max(5, Math.ceil(simState.maxDist + 2));
+        }
+
+        function getSimPlotLayout() {
+            const bg = 'rgba(0,0,0,0)';
+            const gridCol = '#1e293b';
+            const zeroCol = '#94a3b8';
+
+            let layout = {
+                paper_bgcolor: bg, plot_bgcolor: bg,
+                font: { color: '#e2e8f0', family: 'Inter', size: 11 },
+                margin: { l: 40, r: 20, t: 40, b: 40 },
+                showlegend: false,
+                hovermode: false,
+                transition: { duration: 0 }
+            };
+
+            if (simState.dim === 1) {
+                layout.title = 'Vị trí theo thời gian (1D)';
+                layout.xaxis = { title: 'Số bước (Thời gian)', range: [0, simState.steps], gridcolor: gridCol };
+                layout.yaxis = { title: 'Tọa độ X', range: [-simState.maxLimit, simState.maxLimit], gridcolor: gridCol, zerolinecolor: '#ef4444' };
+            } else if (simState.dim === 2) {
+                layout.title = 'Mặt bằng quảng trường (2D)';
+                layout.xaxis = { title: 'Trục X', range: [-simState.maxLimit, simState.maxLimit], gridcolor: gridCol, zerolinecolor: zeroCol };
+                layout.yaxis = { title: 'Trục Y', range: [-simState.maxLimit, simState.maxLimit], gridcolor: gridCol, zerolinecolor: zeroCol, scaleanchor: 'x' };
+            } else if (simState.dim === 3) {
+                layout.title = 'Không gian bay 3D';
+                layout.margin = { l: 0, r: 0, t: 30, b: 0 };
+                layout.scene = {
+                    xaxis: { title: 'X', range: [-simState.maxLimit, simState.maxLimit], gridcolor: gridCol, backgroundcolor: '#0f172a' },
+                    yaxis: { title: 'Y', range: [-simState.maxLimit, simState.maxLimit], gridcolor: gridCol, backgroundcolor: '#0f172a' },
+                    zaxis: { title: 'Z', range: [-simState.maxLimit, simState.maxLimit], gridcolor: gridCol, backgroundcolor: '#0f172a' }
+                };
+            }
+            return layout;
+        }
+
+        function getSimDistLayout() {
+            return {
+                paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#e2e8f0', family: 'Inter', size: 11 },
+                margin: { l: 40, r: 20, t: 40, b: 40 },
+                showlegend: false,
+                hovermode: false,
+                title: 'Khoảng cách so với Gốc ban đầu',
+                xaxis: { title: 'Số bước', range: [0, simState.steps], gridcolor: '#1e293b' },
+                yaxis: { title: 'Khoảng cách (d)', range: [0, simState.maxDist], gridcolor: '#1e293b', zerolinecolor: '#94a3b8' },
+                transition: { duration: 0 }
+            };
+        }
+
+        function renderSimStep() {
+            try {
+                let trajTraces = [];
+                let distTraces = [];
+                let headX = [], headY = [], headZ = [], headTexts = [], headColors = [];
+                let distHeadX = [], distHeadY = [], distHeadColors = [];
+                const icon = simState.dim === 3 ? '🚁' : '🚶‍♂️';
+
+                if (simState.dim !== 1) {
+                    trajTraces.push({
+                        x: [0], y: [0], z: simState.dim === 3 ? [0] : undefined,
+                        mode: 'text',
+                        type: simState.dim === 3 ? 'scatter3d' : 'scatter',
+                        text: ['🏠'],
+                        textfont: { size: 20 }
+                    });
+                }
+
+                for (let i = 0; i < simState.drunks; i++) {
+                    const w = simState.walksData[i];
+                    const c = getColor(i);
+                    let tx, ty, tz;
+
+                    if (simState.dim === 1) {
+                        tx = w.t.slice(0, simState.currentStep + 1);
+                        ty = w.x.slice(0, simState.currentStep + 1);
+                    } else {
+                        tx = w.x.slice(0, simState.currentStep + 1);
+                        ty = w.y.slice(0, simState.currentStep + 1);
+                        tz = simState.dim === 3 ? w.z.slice(0, simState.currentStep + 1) : undefined;
+                    }
+
+                    trajTraces.push({
+                        x: tx, y: ty, z: tz,
+                        mode: 'lines',
+                        type: simState.dim === 3 ? 'scatter3d' : 'scatter',
+                        line: { width: 2, color: c },
+                        opacity: 0.5
+                    });
+
+                    headX.push(tx[tx.length - 1]);
+                    headY.push(ty[ty.length - 1]);
+                    if (simState.dim === 3) headZ.push(tz[tz.length - 1]);
+                    headTexts.push(icon);
+                    headColors.push(c);
+
+                    const dt = w.t.slice(0, simState.currentStep + 1);
+                    const dd = w.dist.slice(0, simState.currentStep + 1);
+
+                    distTraces.push({
+                        x: dt, y: dd,
+                        mode: 'lines', type: 'scatter',
+                        line: { width: 2, color: c },
+                        opacity: 0.6
+                    });
+
+                    distHeadX.push(dt[dt.length - 1]);
+                    distHeadY.push(dd[dd.length - 1]);
+                    distHeadColors.push(c);
+                }
+
+                trajTraces.push({
+                    x: headX, y: headY, z: simState.dim === 3 ? headZ : undefined,
+                    mode: 'markers+text',
+                    type: simState.dim === 3 ? 'scatter3d' : 'scatter',
+                    text: headTexts,
+                    textfont: { size: 20 },
+                    textposition: 'top center',
+                    marker: { size: 5, color: headColors }
+                });
+
+                distTraces.push({
+                    x: distHeadX, y: distHeadY,
+                    mode: 'markers', type: 'scatter',
+                    marker: { size: 7, color: distHeadColors }
+                });
+
+                document.getElementById('simProgressStep').innerText = simState.currentStep;
+
+                Plotly.react('plotlyTrajChart', trajTraces, getSimPlotLayout(), { responsive: true, displayModeBar: false });
+                Plotly.react('plotlyDistChart', distTraces, getSimDistLayout(), { responsive: true, displayModeBar: false });
+
+                // Nếu đang phát sóng: gửi gói tin tới học sinh
+                if (isBroadcasting) {
+                    broadcastSimState();
+                }
+            } catch (err) {
+                console.error("Lỗi Render Sim:", err);
+                pauseSim();
+            }
+        }
+
+        function playSim() {
+            if (simState.currentStep >= simState.steps) {
+                simState.currentStep = 0;
+            }
+            simState.isPlaying = true;
+            if (simState.timer) clearInterval(simState.timer);
+            simState.timer = setInterval(() => {
+                if (simState.currentStep >= simState.steps) {
+                    pauseSim();
+                    return;
+                }
+                simState.currentStep++;
+                renderSimStep();
+            }, 1000 / simState.fps);
+            if (isBroadcasting) broadcastSimState();
+        }
+
+        function pauseSim() {
+            simState.isPlaying = false;
+            if (simState.timer) clearInterval(simState.timer);
+            if (isBroadcasting) broadcastSimState();
+        }
+
+        function resetSim() {
+            pauseSim();
+            updateSimContext();
+            generateSimWalks();
+            simState.currentStep = 0;
+            renderSimStep();
+            if (isBroadcasting) broadcastSimState();
+        }
+
+        function toggleBroadcast(enabled) {
+            isBroadcasting = enabled;
+            const label = document.getElementById('broadcastLabel');
+            const badge = document.getElementById('broadcastBadge');
+            if (enabled) {
+                label.innerText = "Đang phát sóng trực tiếp";
+                label.className = "ml-2.5 text-xs font-bold text-rose-400";
+                badge.classList.remove('hidden');
+                broadcastSimState();
+                showToast("📡 Bắt đầu phát sóng mô phỏng tới Học sinh!");
+            } else {
+                label.innerText = "Tắt phát sóng";
+                label.className = "ml-2.5 text-xs font-semibold text-slate-300";
+                badge.classList.add('hidden');
+                showToast("Đã dừng phát sóng.");
+            }
+        }
+
+        function broadcastSimState() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({
+                type: "broadcast_sim",
+                sim_state: {
+                    dim: simState.dim,
+                    drunks: simState.drunks,
+                    steps: simState.steps,
+                    fps: simState.fps,
+                    currentStep: simState.currentStep,
+                    isPlaying: simState.isPlaying,
+                    walksData: simState.walksData,
+                    maxLimit: simState.maxLimit,
+                    maxDist: simState.maxDist
+                }
+            }));
+        }
+
+        // Lắng nghe sự kiện thanh trượt Sim
+        document.getElementById('simDrunks').addEventListener('input', (e) => {
+            document.getElementById('simDrunksVal').innerText = e.target.value;
+        });
+        document.getElementById('simSteps').addEventListener('input', (e) => {
+            document.getElementById('simStepsVal').innerText = e.target.value;
+            document.getElementById('simProgressTotal').innerText = e.target.value;
+        });
+        document.getElementById('simSpeed').addEventListener('input', (e) => {
+            document.getElementById('simSpeedVal').innerText = e.target.value;
+            simState.fps = parseInt(e.target.value);
+            if (simState.isPlaying) playSim();
+        });
+        document.getElementById('simDimSelect').addEventListener('change', resetSim);
+
+        // Khởi động trang khi load xong
+        window.addEventListener('load', () => {
+            initWebSocket();
+            updateSimContext();
+            generateSimWalks();
+            renderSimStep();
+        });
+    </script>
+</body>
+</html>
