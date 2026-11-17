@@ -1,0 +1,2584 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mô Phỏng SPDE Phát Tán Bụi Mịn PM2.5 Tại TP.HCM</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Leaflet CSS & JS for Real Ho Chi Minh City Map Underlay -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b1120;
+            color: #f1f5f9;
+            overflow-x: hidden;
+        }
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 999px;
+            background: #334155;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            margin-top: -5px;
+            background-color: #38bdf8;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            border: 2px solid #0f172a;
+            box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+        input[type=range]:hover::-webkit-slider-thumb {
+            transform: scale(1.15);
+            background-color: #7dd3fc;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        .math-term {
+            transition: all 0.2s ease;
+        }
+        .math-term:hover {
+            transform: translateY(-2px);
+        }
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.65); }
+            70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+        .source-btn-active {
+            animation: pulse-ring 1.6s infinite;
+        }
+
+        /* Main Navigation Tabs (Sim / Quiz) */
+        .main-tab-btn {
+            background: rgba(30, 41, 59, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #94a3b8;
+            transition: all 0.2s ease;
+        }
+        .main-tab-btn:hover {
+            background: rgba(51, 65, 85, 0.85);
+            color: #f8fafc;
+            border-color: rgba(56, 189, 248, 0.4);
+        }
+        .main-tab-btn.active {
+            background: linear-gradient(135deg, #0ea5e9, #2563eb);
+            border-color: #38bdf8;
+            color: #ffffff;
+            box-shadow: 0 0 18px rgba(14, 165, 233, 0.35);
+        }
+
+        /* Pre-Simulation Quiz Styles */
+        .quiz-card {
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 22px 24px;
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .quiz-card:hover {
+            border-color: rgba(56, 189, 248, 0.35);
+        }
+        .quiz-option-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(2, 6, 23, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+            color: #cbd5e1;
+            line-height: 1.45;
+        }
+        .quiz-option-item:hover {
+            background: rgba(30, 41, 59, 0.85);
+            border-color: rgba(56, 189, 248, 0.4);
+            color: #f8fafc;
+            transform: translateX(3px);
+        }
+        .quiz-option-item.selected {
+            background: rgba(14, 165, 233, 0.2);
+            border-color: #38bdf8;
+            color: #ffffff;
+            box-shadow: 0 0 14px rgba(56, 189, 248, 0.22);
+        }
+        .quiz-option-item.correct {
+            background: rgba(16, 185, 129, 0.2) !important;
+            border-color: #10b981 !important;
+            color: #6ee7b7 !important;
+            font-weight: 600;
+        }
+        .quiz-option-item.incorrect {
+            background: rgba(244, 63, 94, 0.2) !important;
+            border-color: #f43f5e !important;
+            color: #fda4af !important;
+            text-decoration: line-through;
+        }
+        .opt-indicator {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+            margin-top: 1px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .quiz-option-item.selected .opt-indicator {
+            border-color: #38bdf8;
+            background: #0284c7;
+            color: white;
+        }
+        .quiz-option-item.correct .opt-indicator {
+            border-color: #10b981;
+            background: #10b981;
+            color: white;
+        }
+        .quiz-option-item.incorrect .opt-indicator {
+            border-color: #f43f5e;
+            background: #f43f5e;
+            color: white;
+        }
+        .quiz-explanation-box {
+            background: rgba(14, 165, 233, 0.08);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-left: 4px solid #38bdf8;
+            border-radius: 8px;
+            padding: 13px 16px;
+            margin-top: 14px;
+            font-size: 0.86rem;
+            color: #e2e8f0;
+            line-height: 1.5;
+        }
+
+        /* Leaflet container styling under canvas */
+        #hcmLeafletMap {
+            filter: contrast(1.08) brightness(0.88) saturate(0.85);
+        }
+        .leaflet-control-attribution {
+            font-size: 9px !important;
+            background: rgba(15, 23, 42, 0.7) !important;
+            color: #64748b !important;
+        }
+        .leaflet-control-attribution a {
+            color: #38bdf8 !important;
+        }
+
+        /* Toast notification */
+        .app-toast {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.45);
+            color: #f8fafc;
+            padding: 10px 22px;
+            border-radius: 30px;
+            font-size: 0.88rem;
+            font-weight: 500;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 15px rgba(14, 165, 233, 0.3);
+            z-index: 99999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .app-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-white">
+
+    <!-- HEADER & SPDE FORMULA BAR + MAIN TABS -->
+    <header class="border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md sticky top-0 z-40">
+        <div class="max-w-[1600px] mx-auto px-4 py-2.5 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-3">
+            <!-- Title & Badge -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20 shrink-0">
+                    <i class="fa-solid fa-smog text-white text-lg"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">
+                            Mô Phỏng SPDE Phát Tán Bụi Mịn PM2.5 Tại TP. Hồ Chí Minh
+                        </h1>
+                        <span class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                            GIS TP.HCM • QCVN 05:2023
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400">
+                        Phương trình Đạo hàm riêng Ngẫu nhiên Đối lưu – Khuếch tán – Phản ứng trên Bản đồ Đô thị TP.HCM
+                    </p>
+                </div>
+            </div>
+
+            <!-- Center: Interactive Mathematical Equation Display -->
+            <div class="w-full xl:w-auto overflow-x-auto bg-slate-950/90 border border-slate-800 rounded-xl px-3 py-1.5 flex items-center gap-1.5 text-xs font-mono shadow-inner">
+                <span class="math-term px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-200" title="Tốc độ biến thiên nồng độ bụi mịn theo thời gian">
+                    ∂C/∂t
+                </span>
+                <span class="text-slate-500">+</span>
+                <span class="math-term px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30" title="Số hạng đối lưu: Gió mùa TP.HCM cuốn bụi đi theo vận tốc u">
+                    <b>u</b>·∇C
+                </span>
+                <span class="text-slate-400">=</span>
+                <span class="math-term px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" title="Số hạng khuếch tán: Bụi lan rộng do xoáy rối lớp biên đô thị K">
+                    K∇²C
+                </span>
+                <span class="text-slate-500">−</span>
+                <span class="math-term px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30" title="Số hạng lắng đọng khô & mưa rào rửa trôi λ">
+                    λC
+                </span>
+                <span class="text-slate-500">+</span>
+                <span class="math-term px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30" title="Nguồn phát thải S(x,y,t): Giao thông, Cảng Cát Lái, KCN, đốt sinh khối">
+                    S(x,y,t)
+                </span>
+                <span class="text-slate-500">+</span>
+                <span class="math-term px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30" title="Nhiễu ngẫu nhiên nhân tính SPDE: Xoáy rối khí quyển giữa các tòa nhà">
+                    σ(C)dW
+                </span>
+            </div>
+
+            <!-- Right: Main Switcher Tabs (Simulation vs 5-Question Pre-Quiz) -->
+            <nav class="flex items-center gap-2 shrink-0 w-full xl:w-auto justify-end">
+                <button id="tabBtnSim" type="button" onclick="window.switchDustTab('sim')"
+                    class="main-tab-btn active px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
+                    <span>🔬</span>
+                    <span>Thí Nghiệm Mô Phỏng</span>
+                </button>
+                <button id="tabBtnQuiz" type="button" onclick="window.switchDustTab('quiz')"
+                    class="main-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
+                    <span>📝</span>
+                    <span>Dự Đoán Bài Học</span>
+                    <span id="quizBadgeCounter" class="px-2 py-0.5 rounded-full text-[11px] bg-amber-500/25 text-amber-300 border border-amber-400/40 font-mono">0/5</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- ======================================================================= -->
+    <!-- VIEW 1: MAIN SIMULATION VIEW (TP.HCM MAP + SPDE CONTROLS)               -->
+    <!-- ======================================================================= -->
+    <div id="simViewContainer" class="flex-1 flex flex-col">
+
+        <!-- Pre-Quiz Invitation Banner -->
+        <div class="max-w-[1600px] w-full mx-auto px-3 sm:px-4 pt-3">
+            <div class="bg-gradient-to-r from-sky-950/60 via-indigo-950/50 to-slate-900/90 border border-sky-500/30 rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-lg">
+                <div class="flex items-center gap-3">
+                    <span class="text-xl">💡</span>
+                    <div class="text-xs sm:text-sm text-slate-200">
+                        <b class="text-sky-400">Thử thách dự đoán trước khi mô phỏng:</b> Hãy trả lời <b>5 câu hỏi dự đoán sự lan truyền bụi mịn PM2.5 tại TP.HCM</b> trước khi kiểm chứng trên bản đồ!
+                    </div>
+                </div>
+                <button type="button" onclick="window.switchDustTab('quiz')"
+                    class="px-3.5 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs transition shadow-md shadow-sky-500/20 flex items-center gap-1.5 shrink-0">
+                    <span>Làm bài dự đoán (5 câu)</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT GRID -->
+        <main class="flex-1 max-w-[1600px] w-full mx-auto p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+            <!-- LEFT COLUMN: SOURCE CONTROLS, PRESETS & SPDE PARAMETERS (4 COLS) -->
+            <section class="lg:col-span-4 flex flex-col gap-3.5">
+
+                <!-- CARD 1: EMISSION SOURCE PLACEMENT MODE (TOGGLE ON/OFF + CLICK MAP) -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                    <div class="flex items-center justify-between mb-2.5">
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                            <i class="fa-solid fa-industry"></i>
+                            1. Tạo & Quản Lý Nguồn Ô Nhiễm TP.HCM
+                        </h2>
+                        <span id="sourceCountBadge" class="px-2 py-0.5 text-xs font-mono font-semibold rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            4 nguồn đang phát
+                        </span>
+                    </div>
+
+                    <!-- Dedicated Toggle Button for Placing Emission Sources -->
+                    <button id="toggleSourceModeBtn" type="button"
+                        class="w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between transition-all duration-200 border-2 bg-slate-800/90 border-slate-700 text-slate-200 hover:border-slate-600 shadow-md">
+                        <span class="flex items-center gap-2.5">
+                            <span id="sourceModeDot" class="w-3 h-3 rounded-full bg-slate-500 transition-colors"></span>
+                            <span id="sourceModeLabel">Nút Tạo Nguồn Ô Nhiễm: ĐANG TẮT</span>
+                        </span>
+                        <span id="sourceModeActionBadge" class="px-2.5 py-1 rounded-lg text-xs font-mono bg-slate-700 text-slate-300">
+                            Bấm để BẬT
+                        </span>
+                    </button>
+
+                    <p id="interactionHintText" class="mt-2 text-xs text-slate-400 leading-relaxed bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                        <i class="fa-solid fa-circle-info text-sky-400 mr-1"></i>
+                        Khi <b>ĐANG TẮT</b>: Click lên bản đồ TP.HCM để dời <b>Trạm quan trắc AQI</b> (hoặc kéo chuột xoay 3D). Bật nút trên để click tạo nguồn ô nhiễm mới trên bản đồ.
+                    </p>
+
+                    <!-- Active Sources Pill List (Can delete individual source) -->
+                    <div class="mt-2.5">
+                        <div class="text-[11px] text-slate-400 mb-1 flex items-center justify-between">
+                            <span>Danh sách nguồn phát thải trên bản đồ:</span>
+                            <span class="text-[10px] text-slate-500">(Bấm × để xóa riêng từng nguồn)</span>
+                        </div>
+                        <div id="activeSourcesList" class="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto p-1.5 rounded-xl bg-slate-950/80 border border-slate-800/80">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Clear Sources & Reset Air Buttons -->
+                    <div class="grid grid-cols-2 gap-2 mt-2.5">
+                        <button id="clearSourcesBtn" type="button"
+                            class="py-2 px-3 rounded-xl text-xs font-semibold bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-trash-can"></i>
+                            Xóa tất cả nguồn
+                        </button>
+                        <button id="clearAirBtn" type="button"
+                            class="py-2 px-3 rounded-xl text-xs font-semibold bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-wind"></i>
+                            Làm sạch bầu khí quyển
+                        </button>
+                    </div>
+
+                    <!-- Preset Scenarios tailored to Ho Chi Minh City -->
+                    <div class="mt-3 pt-3 border-t border-slate-800">
+                        <div class="text-xs font-semibold text-slate-300 mb-2 flex items-center justify-between">
+                            <span>Kịch bản thực tế tại TP.HCM:</span>
+                            <span id="activePresetName" class="text-[11px] text-amber-400 font-semibold">Cảng Cát Lái & KCN</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" data-preset="industrial"
+                                class="preset-btn py-2 px-2.5 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700/80 text-slate-200 border border-slate-700 transition text-left flex items-center gap-2">
+                                <i class="fa-solid fa-ship text-amber-400"></i>
+                                <span class="truncate">Cảng Cát Lái & KCN</span>
+                            </button>
+                            <button type="button" data-preset="traffic"
+                                class="preset-btn py-2 px-2.5 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700/80 text-slate-200 border border-slate-700 transition text-left flex items-center gap-2">
+                                <i class="fa-solid fa-motorcycle text-orange-400"></i>
+                                <span class="truncate">Cao điểm & Nghịch nhiệt</span>
+                            </button>
+                            <button type="button" data-preset="straw"
+                                class="preset-btn py-2 px-2.5 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700/80 text-slate-200 border border-slate-700 transition text-left flex items-center gap-2">
+                                <i class="fa-solid fa-fire-flame-curved text-rose-400"></i>
+                                <span class="truncate">Đốt sinh khối vùng ven</span>
+                            </button>
+                            <button type="button" data-preset="rain"
+                                class="preset-btn py-2 px-2.5 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700/80 text-slate-200 border border-slate-700 transition text-left flex items-center gap-2">
+                                <i class="fa-solid fa-cloud-showers-heavy text-sky-400"></i>
+                                <span class="truncate">Mưa rào chiều TP.HCM</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARD 2: REALISTIC SPDE PHYSICAL & STOCHASTIC PARAMETERS FOR HCMC -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex-1 flex flex-col justify-between gap-3">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-2">
+                            <i class="fa-solid fa-sliders"></i>
+                            2. Hệ Số Khí Quyển Thực Tế TP.HCM
+                        </h2>
+                        <button id="pauseResumeBtn" type="button"
+                            class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition flex items-center gap-1.5">
+                            <i id="pauseResumeIcon" class="fa-solid fa-pause"></i>
+                            <span id="pauseResumeText">Đang chạy</span>
+                        </button>
+                    </div>
+
+                    <!-- Sliders List -->
+                    <div class="space-y-3">
+
+                        <!-- Slider 1: Turbulent Eddy Diffusivity K_H -->
+                        <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+                            <div class="flex justify-between items-center text-xs mb-1">
+                                <label for="sliderK" class="font-semibold text-emerald-300 flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                    Khuếch tán xoáy rối đô thị (K_H)
+                                </label>
+                                <span id="valK" class="font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">28 m²/s (K=0.28)</span>
+                            </div>
+                            <input id="sliderK" type="range" min="0.05" max="1.50" step="0.01" value="0.28" class="w-full">
+                            <p class="text-[11px] text-slate-400 mt-1">
+                                Thực tế lớp biên TP.HCM: <b>10–20 m²/s</b> khi nghịch nhiệt lặng gió; <b>30–80 m²/s</b> khi đối lưu nhiệt ban ngày mạnh.
+                            </p>
+                        </div>
+
+                        <!-- Slider 2 & Compass: Wind Speed |u| and Wind Direction θ -->
+                        <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+                            <div class="flex items-center gap-3">
+                                <!-- Interactive Visual Compass -->
+                                <div class="shrink-0 flex flex-col items-center">
+                                    <canvas id="compassCanvas" width="68" height="68" class="rounded-full bg-slate-900 border border-slate-700 cursor-pointer shadow-inner" title="Click hoặc kéo trên la bàn để đổi hướng gió thổi tại TP.HCM"></canvas>
+                                    <span class="text-[10px] text-sky-300 mt-1 font-mono font-semibold" id="valWindDirText">Tây-Bắc (135°)</span>
+                                </div>
+
+                                <div class="flex-1 space-y-2">
+                                    <!-- Wind Speed -->
+                                    <div>
+                                        <div class="flex justify-between items-center text-xs mb-1">
+                                            <label for="sliderU" class="font-semibold text-sky-300">Vận tốc gió thực tế |u|</label>
+                                            <span id="valU" class="font-mono font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded">2.2 m/s</span>
+                                        </div>
+                                        <input id="sliderU" type="range" min="0.0" max="6.0" step="0.1" value="2.2" class="w-full">
+                                    </div>
+
+                                    <!-- Wind Direction Angle -->
+                                    <div>
+                                        <div class="flex justify-between items-center text-xs mb-1">
+                                            <label for="sliderTheta" class="font-semibold text-sky-300">Góc hướng gió thổi tới (θ)</label>
+                                            <span id="valTheta" class="font-mono font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded">135°</span>
+                                        </div>
+                                        <input id="sliderTheta" type="range" min="0" max="360" step="1" value="135" class="w-full">
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-1.5">
+                                Gió mùa TP.HCM: Mùa khô gió <b>Đông-Nam thổi lên Tây-Bắc (135°)</b> vận tốc <b>1.8–3.0 m/s</b>; mùa mưa gió <b>Tây-Nam thổi lên Đông-Bắc (45°)</b>.
+                            </p>
+                        </div>
+
+                        <!-- Slider 3: Deposition / Washout Lambda -->
+                        <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+                            <div class="flex justify-between items-center text-xs mb-1">
+                                <label for="sliderLambda" class="font-semibold text-indigo-300 flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+                                    Lắng đọng khô & Mưa rửa trôi (λ)
+                                </label>
+                                <span id="valLambda" class="font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">0.025 (Khô ráo)</span>
+                            </div>
+                            <input id="sliderLambda" type="range" min="0.005" max="0.450" step="0.005" value="0.025" class="w-full">
+                            <p class="text-[11px] text-slate-400 mt-1">
+                                Hạt PM2.5 lắng đọng khô rất chậm (<b>λ ≈ 0.015–0.030</b>). Khi có mưa rào nhiệt đới TP.HCM, <b>λ tăng lên 0.20–0.40</b> rửa sạch bụi.
+                            </p>
+                        </div>
+
+                        <!-- Slider 4: Stochastic Noise Sigma -->
+                        <div class="bg-slate-950/60 p-2.5 rounded-xl border border-rose-500/30">
+                            <div class="flex justify-between items-center text-xs mb-1">
+                                <label for="sliderSigma" class="font-semibold text-rose-300 flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+                                    Nhiễu xoáy khí quyển đô thị (σ)
+                                </label>
+                                <span id="valSigma" class="font-mono font-bold text-rose-400 bg-rose-500/15 px-2 py-0.5 rounded">0.24</span>
+                            </div>
+                            <input id="sliderSigma" type="range" min="0.00" max="0.80" step="0.02" value="0.24" class="w-full">
+                            <p class="text-[11px] text-slate-400 mt-1">
+                                Phản ánh biến động xoáy rối ngẫu nhiên <b>σ(C)dW</b> do ma sát địa hình nhà cao tầng tại Quận 1, Bình Thạnh, Thủ Đức.
+                            </p>
+                        </div>
+
+                        <!-- Slider 5: Source Emission Power S0 -->
+                        <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+                            <div class="flex justify-between items-center text-xs mb-1">
+                                <label for="sliderS0" class="font-semibold text-amber-300 flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                                    Cường độ phát thải nguồn (S₀)
+                                </label>
+                                <span id="valS0" class="font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">165 µg/m³·s</span>
+                            </div>
+                            <input id="sliderS0" type="range" min="20" max="400" step="5" value="165" class="w-full">
+                            <p class="text-[11px] text-slate-400 mt-1">
+                                Công suất phát thải PM2.5 tại mỗi điểm nguồn (Giao thông trung bình: <b>110–150</b>; Cụm Cảng/KCN lớn: <b>170–260</b>).
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Numerical Stability Badge -->
+                    <div class="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                        <span class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-shield-halved text-emerald-400"></i>
+                            Miền TP.HCM: 28km × 24.5km (Δx ≈ 300m)
+                        </span>
+                        <span id="cflStatusBadge" class="text-emerald-400 font-semibold">
+                            CFL Ổn định (N_sub = 2)
+                        </span>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- RIGHT COLUMN: TP.HCM INTERACTIVE MAP CANVAS & REAL-TIME AQI ANALYTICS (8 COLS) -->
+            <section class="lg:col-span-8 flex flex-col gap-3.5">
+
+                <!-- MAIN SIMULATION VIEWPORT CARD -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 shadow-xl flex flex-col">
+
+                    <!-- Top Toolbar: 2D / 3D Switcher + Quick Source Creation Button + Map Overlays -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <!-- View Mode Tabs -->
+                        <div class="inline-flex p-1 rounded-xl bg-slate-950 border border-slate-800">
+                            <button id="view2DBtn" type="button"
+                                class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-sky-500 text-slate-950 shadow">
+                                <i class="fa-solid fa-map-location-dot"></i>
+                                <span>Bản đồ TP.HCM 2D</span>
+                            </button>
+                            <button id="view3DBtn" type="button"
+                                class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-slate-200">
+                                <i class="fa-solid fa-cube"></i>
+                                <span>Bề mặt Plume 3D</span>
+                            </button>
+                        </div>
+
+                        <!-- Quick Toolbar Button for Toggle Source Creation right above the Map -->
+                        <button id="toolbarToggleSourceBtn" type="button"
+                            class="px-3.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-2 bg-slate-800 border-slate-700 text-slate-200 hover:border-amber-400/60">
+                            <i class="fa-solid fa-circle-plus text-amber-400"></i>
+                            <span id="toolbarSourceBtnText">Tạo nguồn ô nhiễm: TẮT</span>
+                        </button>
+
+                        <!-- Helper Toggles -->
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <label class="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 cursor-pointer select-none" title="Hiển thị các địa danh, quận huyện và sông Sài Gòn của TP.HCM">
+                                <input id="toggleHcmLabels" type="checkbox" checked class="accent-amber-400 rounded">
+                                <span>Địa danh TP.HCM</span>
+                            </label>
+                            <label class="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 cursor-pointer select-none">
+                                <input id="toggleParticles" type="checkbox" checked class="accent-sky-400 rounded">
+                                <span>Hạt gió</span>
+                            </label>
+                            <label class="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 cursor-pointer select-none">
+                                <input id="toggleContours" type="checkbox" checked class="accent-sky-400 rounded">
+                                <span>Đường AQI</span>
+                            </label>
+                            <button id="resetCamera3DBtn" type="button"
+                                class="hidden px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                                <i class="fa-solid fa-rotate"></i> Góc nhìn chuẩn
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Simulation Canvas + Real TP.HCM Map Container -->
+                    <div class="relative w-full h-[420px] sm:h-[470px] rounded-xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner select-none">
+                        <!-- Real Leaflet Map of Ho Chi Minh City (Underlay in 2D mode) -->
+                        <div id="hcmLeafletMap" class="absolute inset-0 z-0 pointer-events-none"></div>
+
+                        <!-- SPDE Heatmap + GIS Vector Map + 3D Plume Canvas -->
+                        <canvas id="simCanvas" class="relative z-10 w-full h-full block cursor-crosshair"></canvas>
+
+                        <!-- Floating Mode Banner inside Canvas Top-Left -->
+                        <div id="canvasModeBanner" class="pointer-events-none absolute top-3 left-3 z-20 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md border border-slate-700/80 text-xs flex items-center gap-2 shadow-lg">
+                            <span id="bannerIndicatorDot" class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+                            <span id="bannerModeText" class="font-medium text-slate-200">
+                                Chế độ Trạm quan trắc: Click lên bản đồ TP.HCM để đo PM2.5 tại Quận/Huyện bất kỳ
+                            </span>
+                        </div>
+
+                        <!-- Floating Domain Max/Mean readout Top-Right -->
+                        <div class="pointer-events-none absolute top-3 right-3 z-20 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md border border-slate-700/80 text-xs font-mono flex items-center gap-3 shadow-lg">
+                            <div>
+                                <span class="text-slate-400">Đỉnh PM2.5:</span>
+                                <span id="domainMaxVal" class="font-bold text-amber-400">0.0</span>
+                            </div>
+                            <div class="h-3 w-[1px] bg-slate-700"></div>
+                            <div>
+                                <span class="text-slate-400">TB toàn TP.HCM:</span>
+                                <span id="domainMeanVal" class="font-bold text-sky-400">0.0</span>
+                            </div>
+                        </div>
+
+                        <!-- AQI Color Scale Legend Bottom Overlay -->
+                        <div class="pointer-events-none absolute bottom-2.5 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md border border-slate-800 text-[11px]">
+                            <span class="font-semibold text-slate-300">Chuẩn PM2.5 (µg/m³ - QCVN 05:2023):</span>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-medium">0–25 Tốt</span>
+                                <span class="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 font-medium">26–50 TB (Chuẩn QCVN)</span>
+                                <span class="px-2 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/40 font-medium">51–100 Kém</span>
+                                <span class="px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/40 font-medium">101–150 Xấu</span>
+                                <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 font-medium">151–250 Rất xấu</span>
+                                <span class="px-2 py-0.5 rounded bg-rose-900/60 text-rose-200 border border-rose-500/40 font-medium">&gt;250 Nguy hại</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BOTTOM ROW: STATION READOUT + REAL-TIME STOCHASTIC LINE CHART -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3.5 flex-1">
+
+                    <!-- Station AQI Card (5 Cols) -->
+                    <div class="md:col-span-5 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-tower-broadcast"></i>
+                                    Trạm Quan Trắc AQI TP.HCM
+                                </h3>
+                                <span id="stationCoordsBadge" class="text-[11px] font-mono text-amber-300 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                                    Quận 1 (10.78°N, 106.70°E)
+                                </span>
+                            </div>
+
+                            <!-- Live Concentration & AQI Status -->
+                            <div class="my-2 p-3 rounded-xl bg-slate-950/90 border border-slate-800/90 flex items-center justify-between">
+                                <div>
+                                    <div class="text-xs text-slate-400">Nồng độ PM2.5 tại trạm</div>
+                                    <div class="flex items-baseline gap-1.5 mt-0.5">
+                                        <span id="stationPmValue" class="text-2xl sm:text-3xl font-extrabold font-mono text-white">42.5</span>
+                                        <span class="text-xs text-slate-400 font-mono">µg/m³</span>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <span id="stationAqiBadge" class="inline-block px-3 py-1 rounded-lg text-xs font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/40">
+                                        TRUNG BÌNH
+                                    </span>
+                                    <div id="stationNoiseDelta" class="text-[11px] font-mono text-rose-400 mt-1">
+                                        Dao động σdW: ±3.2
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p id="stationHealthAdvice" class="text-xs text-slate-300 leading-relaxed">
+                                Chất lượng không khí ở mức chấp nhận được theo QCVN 05:2023/BTNMT. Nhóm nhạy cảm nên hạn chế thời gian hoạt động ngoài trời nếu có triệu chứng hô hấp.
+                            </p>
+                        </div>
+
+                        <!-- Pedagogical Note -->
+                        <div class="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-400 flex items-start gap-2">
+                            <i class="fa-solid fa-location-dot text-amber-400 mt-0.5"></i>
+                            <span>
+                                <b>Thực nghiệm TP.HCM:</b> Bật nút <b>Tạo nguồn ô nhiễm</b> rồi click đặt thêm nguồn tại <b>Cảng Cát Lái</b> hoặc <b>Ngã tư Hàng Xanh</b>, sau đó tắt nút và click đặt Trạm đo tại <b>Quận 1 / Bình Thạnh</b> để khảo sát!
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Real-Time Stochastic Time-Series Chart (7 Cols) -->
+                    <div class="md:col-span-7 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col justify-between">
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <div>
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-chart-line"></i>
+                                    Biến Thiên Nồng Độ PM2.5 Theo Thời Gian Tại Trạm Quan Trắc
+                                </h3>
+                            </div>
+                            <div class="flex items-center gap-3 text-[11px]">
+                                <span class="flex items-center gap-1.5 text-sky-300">
+                                    <span class="w-3 h-0.5 bg-sky-400 inline-block"></span>
+                                    Thực tế SPDE C(t)
+                                </span>
+                                <span class="flex items-center gap-1.5 text-amber-300/80">
+                                    <span class="w-3 h-0.5 bg-amber-400 inline-block border-b border-dashed"></span>
+                                    Trung bình trượt (Tất định)
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="relative w-full h-36 sm:h-40 bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
+                            <canvas id="chartCanvas" class="w-full h-full block"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- VIEW 2: PRE-SIMULATION 5-QUESTION PREDICTION QUIZ                       -->
+    <!-- ======================================================================= -->
+    <div id="quizViewContainer" class="hidden flex-1 max-w-4xl w-full mx-auto px-4 py-6 flex flex-col gap-5">
+
+        <!-- Quiz Header Card -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl flex flex-wrap items-center justify-between gap-4">
+            <div>
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold mb-2">
+                    <span>📝</span>
+                    <span>Phiếu Dự Đoán Khoa Học Trước Khi Mô Phỏng</span>
+                </div>
+                <h2 class="text-lg sm:text-xl font-extrabold text-white">
+                    Khảo Sát Sự Lan Truyền Bụi Mịn PM2.5 Tại TP.HCM (Phương Trình SPDE)
+                </h2>
+                <p class="text-xs sm:text-sm text-slate-400 mt-1">
+                    Hãy vận dụng kiến thức Vật lý Khí quyển & Toán học trả lời 5 câu hỏi dưới đây, sau đó chạy mô phỏng trên bản đồ TP.HCM để kiểm chứng!
+                </p>
+            </div>
+
+            <div class="min-w-[170px] bg-slate-950/80 border border-slate-800 rounded-xl p-3 text-right">
+                <div class="text-xs font-semibold text-slate-300 mb-1.5">
+                    Tiến độ hoàn thành: <span id="quizAnsweredCount" class="text-sky-400 font-bold font-mono">0</span>/5 câu
+                </div>
+                <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div id="quizProgressBar" class="h-full bg-gradient-to-r from-sky-500 to-emerald-400 transition-all duration-300" style="width: 0%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Score Result Banner (Hidden until submitted) -->
+        <div id="quizScoreBanner" class="hidden rounded-2xl p-5 bg-emerald-950/50 border border-emerald-500/40 items-center gap-4 shadow-xl">
+            <div id="quizScoreIcon" class="text-3xl sm:text-4xl">🌟</div>
+            <div class="flex-1">
+                <h3 id="quizScoreTitle" class="text-base sm:text-lg font-bold text-white">Kết quả dự đoán của bạn</h3>
+                <p id="quizScoreDesc" class="text-xs sm:text-sm text-slate-300 mt-0.5 leading-relaxed"></p>
+            </div>
+            <button type="button" onclick="window.switchDustTab('sim')"
+                class="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition shrink-0 shadow-lg">
+                Mở Bản Đồ Kiểm Chứng →
+            </button>
+        </div>
+
+        <!-- 5 Question Cards Container -->
+        <div id="quizCardsList" class="flex flex-col gap-4">
+            <!-- Rendered dynamically by JS -->
+        </div>
+
+        <!-- Quiz Action Buttons Footer -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-center gap-3 sticky bottom-3 z-30 shadow-2xl">
+            <button type="button" id="btnSubmitDustQuiz" onclick="window.submitDustQuiz()"
+                class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-sky-500/25 transition flex items-center gap-2">
+                <span>✅</span>
+                <span>Nộp Dự Đoán & Xem Giải Thích Khoa Học</span>
+            </button>
+            <button type="button" onclick="window.resetDustQuiz()"
+                class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs sm:text-sm transition flex items-center gap-1.5">
+                <span>🔄</span>
+                <span>Làm Lại</span>
+            </button>
+            <button type="button" onclick="window.switchDustTab('sim')"
+                class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-amber-500/20 transition flex items-center gap-2">
+                <span>🚀</span>
+                <span>Bắt Đầu Mô Phỏng Bản Đồ TP.HCM →</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast Notification Element -->
+    <div id="dustToast" class="app-toast"></div>
+
+    <!-- APPLICATION JAVASCRIPT: 5-QUESTION QUIZ + HCMC GIS MAP + SPDE ENGINE -->
+    <script>
+        (function () {
+            "use strict";
+
+            // ============================================================================
+            // 0. TOAST & TAB SWITCHING + 5-QUESTION PRE-SIMULATION QUIZ
+            // ============================================================================
+            let toastTimer = null;
+            function showToast(msg) {
+                const el = document.getElementById('dustToast');
+                if (!el) return;
+                el.innerHTML = msg;
+                el.classList.add('show');
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => {
+                    el.classList.remove('show');
+                }, 2800);
+            }
+
+            const dustQuizQuestions = [
+                {
+                    id: 1,
+                    topic: "Đối lưu gió mùa (u · ∇C) tại TP.HCM",
+                    question: "Vào mùa khô tại TP.HCM, gió mùa Đông - Đông Nam thổi từ cụm Cảng Cát Lái (TP. Thủ Đức) và KCN Hiệp Phước về phía trung tâm Quận 1, Bình Thạnh. Khi vận tốc gió |u| tăng mạnh lên, hình dạng vệt bụi mịn PM2.5 và nồng độ ngay tại tâm nguồn sẽ thay đổi như thế nào?",
+                    options: [
+                        "Đám mây bụi bị kéo dài thành vệt hẹp trôi nhanh về phía các quận cuối gió (Quận 1, Bình Thạnh, Tân Bình), đồng thời nồng độ cực đại ngay tại tâm nguồn giảm xuống do được gió thổi thông thoáng nhanh hơn.",
+                        "Bụi mịn đứng yên tại chỗ quanh Cảng Cát Lái và chỉ tăng chiều cao thẳng đứng chứ không trôi sang các quận lân cận.",
+                        "Bụi mịn lập tức đi ngược lại chiều gió về phía biển Cần Giờ.",
+                        "Vận tốc gió không có bất kỳ ảnh hưởng nào đến phương hướng hay tốc độ lan truyền của bụi mịn PM2.5."
+                    ],
+                    correct: 0,
+                    explanation: "Số hạng đối lưu u · ∇C đặc trưng cho sự vận chuyển chất ô nhiễm theo dòng gió. Khi vận tốc gió |u| lớn, thông lượng bụi bị cuốn theo chiều gió tăng mạnh tạo thành vệt khói (plume) vươn xa về phía hạ lưu, đồng thời giúp giải tỏa sự tích tụ cục bộ ngay tại miệng nguồn phát thải."
+                },
+                {
+                    id: 2,
+                    topic: "Khuếch tán xoáy rối (K∇²C) & Hiện tượng nghịch nhiệt sáng sớm ở TP.HCM",
+                    question: "Vào sáng sớm mùa khô (tháng 11 – tháng 2), TP.HCM thường xuất hiện lớp 'nghịch nhiệt bức xạ' kèm sương mù quang hóa khiến không khí tù đọng và hệ số khuếch tán rối K giảm xuống rất thấp. Hiện tượng gì sẽ xảy ra tại các nút giao thông lớn như Hàng Xanh, Phú Lâm, An Sương?",
+                    options: [
+                        "Do hệ số khuếch tán K rất nhỏ và gió yếu, bụi mịn PM2.5 từ xe cộ không thể phát tán rộng mà bị giam giữ đặc quánh sát mặt đất, làm chỉ số AQI tại các nút giao thông vọt lên ngưỡng Xấu – Rất xấu (Đỏ/Tím).",
+                        "Bụi mịn tự động biến mất hoàn toàn ngay khi vừa thoát ra khỏi ống xả xe máy.",
+                        "Hệ số khuếch tán K càng nhỏ thì bụi mịn càng loang ra toàn thành phố nhanh gấp 10 lần.",
+                        "Nghịch nhiệt làm bụi mịn tự động chuyển hóa thành khí oxy tinh khiết."
+                    ],
+                    correct: 0,
+                    explanation: "Toán tử Laplace K∇²C đóng vai trò san phẳng và làm loãng nồng độ từ nơi cao sang nơi thấp. Khi nghịch nhiệt xảy ra (K nhỏ, |u| nhỏ), tốc độ pha loãng khí quyển giảm mạnh khiến bụi PM2.5 tích tụ cục bộ ở tầng thở của con người."
+                },
+                {
+                    id: 3,
+                    topic: "Lắng đọng khô & Mưa rào nhiệt đới rửa trôi (−λC)",
+                    question: "Thực tế quan trắc tại TP.HCM cho thấy chất lượng không khí trong mùa mưa (tháng 5 – tháng 10) luôn tốt hơn hẳn mùa khô. Trong phương trình SPDE, khi xuất hiện cơn mưa rào chiều làm hệ số rửa trôi λ tăng vọt từ 0.02 lên 0.30, trường nồng độ bụi C(x,y,t) biến đổi ra sao?",
+                    options: [
+                        "Các hạt nước mưa va chạm, hấp thụ và kéo hạt bụi PM2.5 rơi xuống mặt đất (Wet scavenging), làm nồng độ bụi trên toàn bản đồ TP.HCM suy giảm nhanh theo quy luật hàm mũ e^(−λt) về mức Xanh (Tốt).",
+                        "Cơn mưa làm các hạt bụi mịn nhân đôi khối lượng và lơ lửng vĩnh viễn trên bầu trời.",
+                        "Hệ số λ chỉ làm đổi màu sắc hiển thị của bản đồ chứ không làm giảm lượng bụi trong không khí.",
+                        "Mưa rào làm nồng độ bụi PM2.5 tại tất cả các quận tăng lên gấp 5 lần."
+                    ],
+                    correct: 0,
+                    explanation: "Số hạng tiêu hao −λC đại diện cho quá trình lắng đọng trọng lực (Dry deposition) và rửa trôi ướt do mưa (Wet scavenging). Vì hạt PM2.5 rất nhẹ nên lắng đọng khô rất chậm (λ ≈ 0.02); nhưng khi mưa rào, hạt mưa cuốn trôi bụi cực kỳ hiệu quả (λ ≈ 0.25–0.40), giúp bầu khí quyển TP.HCM sạch nhanh chóng."
+                },
+                {
+                    id: 4,
+                    topic: "Nhiễu ngẫu nhiên Khí quyển (σ(C)dW) trong Đô thị",
+                    question: "Tại các khu vực nhiều nhà cao tầng đan xen như Quận 1 và Bình Thạnh, dòng gió bị cắt xé tạo ra các xoáy rối ngẫu nhiên bất định. Khi bạn tăng hệ số nhiễu ngẫu nhiên từ σ = 0 lên σ = 0.30, đồ thị nồng độ PM2.5 theo thời gian tại Trạm quan trắc sẽ thay đổi thế nào?",
+                    options: [
+                        "Khi σ = 0, đồ thị nồng độ là đường cong trơn nhẵn tất định (PDE); khi σ > 0, đường nồng độ xuất hiện các dao động thăng giáng ngẫu nhiên liên tục quanh đường trung bình trượt, phản ánh đúng dữ liệu cảm biến AQI thực tế ngoài đời.",
+                        "Đồ thị biến thành một đường thẳng nằm ngang cố định ở mức 0 µg/m³.",
+                        "Khi tăng σ, toàn bộ các nguồn phát thải tự động bị xóa khỏi bản đồ.",
+                        "Nhiễu ngẫu nhiên σ chỉ có tác dụng khi tắt hoàn toàn nguồn phát thải."
+                    ],
+                    correct: 0,
+                    explanation: "Trong phương trình vi phân đạo hàm riêng ngẫu nhiên (SPDE), số hạng nhân tính σ(C)dW(x,y,t) mô hình hóa sự hỗn loạn ngẫu nhiên ở quy mô dưới lưới (sub-grid turbulence) của khí quyển đô thị, giải thích vì sao số đo PM2.5 thực tế luôn dao động từng phút."
+                },
+                {
+                    id: 5,
+                    topic: "Chồng chất Đa nguồn Ô nhiễm & Quy hoạch Đô thị TP.HCM",
+                    question: "Khi bạn bật nút 'Tạo nguồn ô nhiễm' và click đặt thêm nhiều nguồn phát thải nằm dọc theo cùng một trục hướng gió (ví dụ từ Cát Lái → Thủ Thiêm → Quận 1 → Tân Bình), nồng độ bụi PM2.5 tại khu vực dân cư cuối gió sẽ như thế nào?",
+                    options: [
+                        "Các luồng khói bụi từ nhiều nguồn giao thoa và cộng hưởng (chồng chất) vào nhau khi trôi theo chiều gió, tạo nên vùng điểm nóng ô nhiễm (Hotspot AQI Đỏ/Tím) có nồng độ cao gấp nhiều lần so với một nguồn đơn lẻ.",
+                        "Hai nguồn ô nhiễm đặt gần nhau sẽ tự động triệt tiêu nhau làm không khí sạch hoàn toàn.",
+                        "Nồng độ bụi chỉ tính theo nguồn nhỏ nhất, các nguồn khác không có tác dụng.",
+                        "Bụi mịn chỉ tập trung ở các quận ngược chiều gió."
+                    ],
+                    correct: 0,
+                    explanation: "Do tính chất tuyến tính của toán tử đối lưu - khuếch tán đối với nguồn phát thải ∑ S_k(x,y,t), khi nhiều nguồn ô nhiễm phân bố dọc theo hành lang gió, vệt khói của nguồn phía trước sẽ chồng lên nguồn phía sau, gây ra hiện tượng tích lũy ô nhiễm nghiêm trọng ở các quận nội đô cuối gió."
+                }
+            ];
+
+            let userQuizAnswers = {};
+            let userQuizNotes = {};
+            let quizSubmitted = false;
+
+            function renderDustQuiz() {
+                const container = document.getElementById('quizCardsList');
+                if (!container) return;
+
+                const letters = ['A', 'B', 'C', 'D'];
+                let html = '';
+
+                dustQuizQuestions.forEach((q) => {
+                    let optsHtml = '';
+                    q.options.forEach((optText, idx) => {
+                        const isSelected = userQuizAnswers[q.id] === idx;
+                        let cls = '';
+                        if (quizSubmitted) {
+                            if (idx === q.correct) cls = 'correct';
+                            else if (isSelected && idx !== q.correct) cls = 'incorrect';
+                        } else if (isSelected) {
+                            cls = 'selected';
+                        }
+
+                        optsHtml += `
+                            <div class="quiz-option-item ${cls}" onclick="window.selectDustQuizOption(${q.id}, ${idx})">
+                                <div class="opt-indicator">${letters[idx]}</div>
+                                <div>${optText}</div>
+                            </div>
+                        `;
+                    });
+
+                    let statusHtml = '';
+                    if (quizSubmitted) {
+                        if (userQuizAnswers[q.id] === q.correct) {
+                            statusHtml = `<span class="text-xs font-bold text-emerald-400">✔ Dự đoán chính xác (+1)</span>`;
+                        } else if (userQuizAnswers[q.id] !== undefined) {
+                            statusHtml = `<span class="text-xs font-bold text-rose-400">✘ Chưa chính xác</span>`;
+                        } else {
+                            statusHtml = `<span class="text-xs font-medium text-slate-400">⚪ Chưa chọn</span>`;
+                        }
+                    }
+
+                    const noteVal = userQuizNotes[q.id] || '';
+                    const expStyle = quizSubmitted ? 'display:block;' : 'display:none;';
+
+                    html += `
+                        <div class="quiz-card">
+                            <div class="flex items-center justify-between gap-2 mb-3">
+                                <span class="px-3 py-1 rounded-full text-xs font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                                    Câu ${q.id} • ${q.topic}
+                                </span>
+                                ${statusHtml}
+                            </div>
+                            <p class="text-sm sm:text-base font-bold text-white mb-3.5 leading-relaxed">${q.question}</p>
+                            <div class="flex flex-col gap-2.5 mb-3">
+                                ${optsHtml}
+                            </div>
+                            <input type="text" value="${noteVal.replace(/"/g, '&quot;')}"
+                                oninput="window.updateDustQuizNote(${q.id}, this.value)"
+                                placeholder="✏️ Ghi chú / Giải thích nhanh suy nghĩ dự đoán của bạn (tùy chọn)..."
+                                class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-sky-500 transition">
+                            <div class="quiz-explanation-box" style="${expStyle}">
+                                <b class="text-sky-300">💡 Giải thích khoa học & Cách kiểm chứng trên bản đồ TP.HCM:</b><br>
+                                ${q.explanation}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+                updateDustQuizProgress();
+            }
+
+            function updateDustQuizProgress() {
+                const count = Object.keys(userQuizAnswers).length;
+                const countEl = document.getElementById('quizAnsweredCount');
+                const barEl = document.getElementById('quizProgressBar');
+                const badgeEl = document.getElementById('quizBadgeCounter');
+                if (countEl) countEl.textContent = count;
+                if (barEl) barEl.style.width = `${(count / 5) * 100}%`;
+                if (badgeEl) badgeEl.textContent = `${count}/5`;
+            }
+
+            window.selectDustQuizOption = function (qId, optIdx) {
+                if (quizSubmitted) return;
+                userQuizAnswers[qId] = optIdx;
+                renderDustQuiz();
+            };
+
+            window.updateDustQuizNote = function (qId, val) {
+                userQuizNotes[qId] = val;
+            };
+
+            window.submitDustQuiz = function () {
+                const count = Object.keys(userQuizAnswers).length;
+                if (count === 0) {
+                    showToast('⚠️ Bạn hãy chọn ít nhất 1 câu trả lời dự đoán trước khi nộp nhé!');
+                    return;
+                }
+                quizSubmitted = true;
+                let score = 0;
+                dustQuizQuestions.forEach((q) => {
+                    if (userQuizAnswers[q.id] === q.correct) score++;
+                });
+                renderDustQuiz();
+
+                const banner = document.getElementById('quizScoreBanner');
+                const icon = document.getElementById('quizScoreIcon');
+                const title = document.getElementById('quizScoreTitle');
+                const desc = document.getElementById('quizScoreDesc');
+                if (banner) {
+                    banner.classList.remove('hidden');
+                    banner.classList.add('flex');
+                    if (score >= 4) {
+                        icon.textContent = '🌟';
+                        title.textContent = `Xuất sắc! Bạn đã dự đoán đúng ${score}/5 câu hỏi!`;
+                        desc.textContent = 'Bạn nắm rất vững bản chất phương trình SPDE Đối lưu – Khuếch tán – Phản ứng. Hãy bấm sang Bản đồ TP.HCM để tự tạo nguồn ô nhiễm và kiểm chứng thực tế!';
+                    } else if (score >= 2) {
+                        icon.textContent = '👍';
+                        title.textContent = `Tốt lắm! Bạn đã dự đoán đúng ${score}/5 câu hỏi.`;
+                        desc.textContent = 'Hãy xem phần giải thích khoa học bên dưới mỗi câu, sau đó mở Bản đồ TP.HCM để trực tiếp quan sát vệt khói bụi mịn!';
+                    } else {
+                        icon.textContent = '💡';
+                        title.textContent = `Đã ghi nhận dự đoán (${score}/5 câu đúng).`;
+                        desc.textContent = 'Đừng lo! Hãy đọc lời giải thích ở dưới và chuyển sang Bản đồ mô phỏng TP.HCM để trực tiếp kéo các thanh trượt kiểm nghiệm nhé.';
+                    }
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+                showToast(`🎉 Đã chấm điểm phiếu dự đoán: ${score}/5 câu đúng!`);
+            };
+
+            window.resetDustQuiz = function () {
+                userQuizAnswers = {};
+                userQuizNotes = {};
+                quizSubmitted = false;
+                const banner = document.getElementById('quizScoreBanner');
+                if (banner) {
+                    banner.classList.add('hidden');
+                    banner.classList.remove('flex');
+                }
+                renderDustQuiz();
+                showToast('🔄 Đã làm mới phiếu câu hỏi dự đoán.');
+            };
+
+            window.switchDustTab = function (tab) {
+                const simView = document.getElementById('simViewContainer');
+                const quizView = document.getElementById('quizViewContainer');
+                const btnSim = document.getElementById('tabBtnSim');
+                const btnQuiz = document.getElementById('tabBtnQuiz');
+
+                if (tab === 'quiz') {
+                    simView.classList.add('hidden');
+                    quizView.classList.remove('hidden');
+                    btnSim.classList.remove('active');
+                    btnQuiz.classList.add('active');
+                    renderDustQuiz();
+                } else {
+                    quizView.classList.add('hidden');
+                    simView.classList.remove('hidden');
+                    btnQuiz.classList.remove('active');
+                    btnSim.classList.add('active');
+                    if (hcmMap) {
+                        setTimeout(() => hcmMap.invalidateSize(), 60);
+                    }
+                }
+            };
+
+            // ============================================================================
+            // 1. HO CHI MINH CITY GEOGRAPHIC COORDINATES & GIS MAP DATA
+            //    Domain: 10.66°N -> 10.88°N (24.5 km), 106.56°E -> 106.82°E (28.0 km)
+            // ============================================================================
+            const NX = 88;
+            const NY = 88;
+            const DX = 1.0;
+            const DY = 1.0;
+            const MAX_CONCENTRATION = 500.0;
+
+            const LON_MIN = 106.56, LON_MAX = 106.82;
+            const LAT_MIN = 10.66,  LAT_MAX = 10.88;
+
+            function latLonToGrid(lat, lon) {
+                const gx = ((lon - LON_MIN) / (LON_MAX - LON_MIN)) * (NX - 1);
+                const gy = ((lat - LAT_MIN) / (LAT_MAX - LAT_MIN)) * (NY - 1);
+                return { x: Math.round(gx), y: Math.round(gy), fx: gx, fy: gy };
+            }
+
+            function gridToLatLon(gx, gy) {
+                const lon = LON_MIN + (gx / (NX - 1)) * (LON_MAX - LON_MIN);
+                const lat = LAT_MIN + (gy / (NY - 1)) * (LAT_MAX - LAT_MIN);
+                return { lat, lon };
+            }
+
+            // Key Districts & Landmarks of Ho Chi Minh City (Real GPS Coordinates)
+            const HCM_LANDMARKS = [
+                { name: "Quận 1", sub: "Bến Thành", lat: 10.773, lon: 106.698, major: true },
+                { name: "Quận 3", sub: "Hồ Con Rùa", lat: 10.783, lon: 106.688, major: false },
+                { name: "Quận 4", sub: "Khánh Hội", lat: 10.758, lon: 106.705, major: false },
+                { name: "Quận 5", sub: "Chợ Lớn", lat: 10.754, lon: 106.663, major: true },
+                { name: "Quận 6", sub: "Phú Lâm", lat: 10.746, lon: 106.632, major: false },
+                { name: "Quận 7", sub: "Phú Mỹ Hưng", lat: 10.730, lon: 106.722, major: true },
+                { name: "Quận 8", sub: "Kênh Đôi", lat: 10.724, lon: 106.628, major: false },
+                { name: "Quận 10", sub: "Ngã 6 Dân Chủ", lat: 10.772, lon: 106.668, major: false },
+                { name: "Quận 11", sub: "Đầm Sen", lat: 10.765, lon: 106.642, major: false },
+                { name: "Quận 12", sub: "An Sương", lat: 10.852, lon: 106.628, major: true },
+                { name: "Q. Bình Thạnh", sub: "Hàng Xanh", lat: 10.803, lon: 106.712, major: true },
+                { name: "Q. Tân Bình", sub: "Sân bay TSN", lat: 10.814, lon: 106.654, major: true },
+                { name: "Q. Tân Phú", sub: "Tân Kỳ Tân Quý", lat: 10.792, lon: 106.625, major: false },
+                { name: "Q. Phú Nhuận", sub: "Nguyễn Văn Trỗi", lat: 10.799, lon: 106.680, major: false },
+                { name: "Q. Gò Vấp", sub: "Quang Trung", lat: 10.838, lon: 106.668, major: true },
+                { name: "Q. Bình Tân", sub: "KCN Vĩnh Lộc", lat: 10.768, lon: 106.598, major: true },
+                { name: "TP. Thủ Đức", sub: "Thủ Thiêm - Thảo Điền", lat: 10.792, lon: 106.742, major: true },
+                { name: "TP. Thủ Đức (Bắc)", sub: "Khu Công Nghệ Cao", lat: 10.846, lon: 106.775, major: true },
+                { name: "Cảng Cát Lái", sub: "Nam Thủ Đức", lat: 10.758, lon: 106.786, major: true },
+                { name: "H. Nhà Bè", sub: "KCN Hiệp Phước", lat: 10.684, lon: 106.740, major: true },
+                { name: "H. Bình Chánh", sub: "Cửa ngõ Tây Nam", lat: 10.702, lon: 106.595, major: true }
+            ].map(lm => {
+                const g = latLonToGrid(lm.lat, lm.lon);
+                return { ...lm, gx: g.fx, gy: g.fy };
+            });
+
+            // Saigon River (Sông Sài Gòn -> Sông Nhà Bè) accurate path in (lat, lon)
+            const SAIGON_RIVER_LATLON = [
+                [10.880, 106.692], [10.860, 106.706], [10.842, 106.712],
+                [10.828, 106.710], [10.818, 106.726], [10.824, 106.738], // Bán đảo Thanh Đa
+                [10.808, 106.746], [10.798, 106.730], [10.788, 106.714],
+                [10.775, 106.707], // Bến Bạch Đằng Quận 1
+                [10.762, 106.709], [10.752, 106.728], [10.744, 106.744], // Cầu Phú Mỹ
+                [10.752, 106.768], [10.742, 106.788], // Ngã ba Cát Lái - Đồng Nai
+                [10.715, 106.765], [10.685, 106.758], [10.660, 106.762]  // Sông Nhà Bè
+            ].map(pt => latLonToGrid(pt[0], pt[1]));
+
+            // Kênh Tàu Hủ - Bến Nghé - Đôi (East-West Waterway across Q1, Q4, Q5, Q6, Q8)
+            const TAU_HU_CANAL = [
+                [10.768, 106.707], [10.762, 106.690], [10.752, 106.670],
+                [10.746, 106.650], [10.732, 106.625], [10.718, 106.595]
+            ].map(pt => latLonToGrid(pt[0], pt[1]));
+
+            // Major Arterial Highways of HCMC
+            const HCM_HIGHWAYS = [
+                {
+                    name: "QL1A (Vành đai Tây - Bắc)",
+                    pts: [[10.670, 106.590], [10.725, 106.596], [10.775, 106.592], [10.825, 106.605], [10.858, 106.635], [10.865, 106.725], [10.875, 106.790]]
+                },
+                {
+                    name: "Xa lộ Hà Nội - Võ Văn Kiệt",
+                    pts: [[10.735, 106.605], [10.752, 106.665], [10.770, 106.702], [10.798, 106.722], [10.812, 106.755], [10.848, 106.778], [10.875, 106.805]]
+                },
+                {
+                    name: "Đại lộ Nguyễn Văn Linh",
+                    pts: [[10.702, 106.595], [10.722, 106.655], [10.728, 106.705], [10.744, 106.742], [10.758, 106.786]]
+                },
+                {
+                    name: "Phạm Văn Đồng - Trường Sơn",
+                    pts: [[10.814, 106.658], [10.822, 106.692], [10.830, 106.728], [10.858, 106.760]]
+                }
+            ].map(hw => ({
+                name: hw.name,
+                gridPts: hw.pts.map(p => latLonToGrid(p[0], p[1]))
+            }));
+
+            function findNearestLandmark(gx, gy) {
+                let best = HCM_LANDMARKS[0];
+                let minD2 = Infinity;
+                for (let i = 0; i < HCM_LANDMARKS.length; i++) {
+                    const lm = HCM_LANDMARKS[i];
+                    const dx = lm.gx - gx;
+                    const dy = lm.gy - gy;
+                    const d2 = dx * dx + dy * dy;
+                    if (d2 < minD2) {
+                        minD2 = d2;
+                        best = lm;
+                    }
+                }
+                return best;
+            }
+
+            // Initialize Leaflet Real Map of Ho Chi Minh City underneath the 2D canvas
+            let hcmMap = null;
+            function initLeafletMap() {
+                try {
+                    const bounds = L.latLngBounds(
+                        L.latLng(LAT_MIN, LON_MIN),
+                        L.latLng(LAT_MAX, LON_MAX)
+                    );
+                    hcmMap = L.map('hcmLeafletMap', {
+                        zoomControl: false,
+                        dragging: false,
+                        scrollWheelZoom: false,
+                        doubleClickZoom: false,
+                        boxZoom: false,
+                        keyboard: false,
+                        touchZoom: false,
+                        attributionControl: true
+                    });
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                        attribution: '&copy; OpenStreetMap &copy; CARTO • TP.HCM GIS',
+                        subdomains: 'abcd',
+                        maxZoom: 16
+                    }).addTo(hcmMap);
+                    hcmMap.fitBounds(bounds, { animate: false, padding: [0, 0] });
+                } catch (err) {
+                    console.warn("Leaflet offline fallback active:", err);
+                }
+            }
+
+            // ============================================================================
+            // 2. SPDE STATE ARRAYS & REALISTIC HCMC PARAMETERS
+            // ============================================================================
+            let C = new Float32Array(NX * NY);
+            let C_next = new Float32Array(NX * NY);
+            const AMBIENT_BG_HCMC = 15.0; // Realistic urban background PM2.5 in TP.HCM (µg/m³)
+
+            // Realistic calibrated parameters for Ho Chi Minh City
+            const params = {
+                K: 0.28,          // Eddy diffusivity (0.28 ~ 28 m²/s in urban boundary layer)
+                windSpeed: 2.2,   // Realistic HCMC SE wind speed (2.2 m/s)
+                windAngle: 135,   // 135° = SE wind blowing toward NW (Cát Lái -> Quận 1 -> Tân Bình)
+                lambda: 0.025,    // Dry deposition rate (0.025 s^-1; rain = 0.28 s^-1)
+                sigma: 0.24,      // Urban street-canyon stochastic turbulence intensity
+                S0: 165           // Realistic source emission strength (µg/m³·s)
+            };
+
+            let isRunning = true;
+            let isSourcePlaceMode = false; // OFF by default; user toggles button to place sources
+            let viewMode = '2D';
+            let showHcmLabels = true;
+            let showParticles = true;
+            let showContours = true;
+            let simTime = 0;
+
+            let sources = [];
+            const station = { x: 47, y: 45 }; // Default at Quận 1 (Bến Thành)
+
+            const MAX_HISTORY = 160;
+            const historyInstant = [];
+            const historySmooth = [];
+            let smoothedStationVal = 0;
+
+            const camera3D = {
+                yaw: -0.62,
+                pitch: 0.64,
+                isDragging: false,
+                lastX: 0,
+                lastY: 0,
+                dragDistance: 0
+            };
+
+            const NUM_PARTICLES = 150;
+            const particles = [];
+            for (let i = 0; i < NUM_PARTICLES; i++) {
+                particles.push({
+                    x: Math.random() * (NX - 1),
+                    y: Math.random() * (NY - 1),
+                    age: Math.random() * 100
+                });
+            }
+
+            const offscreenCanvas = document.createElement('canvas');
+            offscreenCanvas.width = NX;
+            offscreenCanvas.height = NY;
+            const offCtx = offscreenCanvas.getContext('2d');
+            const heatmapImgData = offCtx.createImageData(NX, NY);
+
+            const simCanvas = document.getElementById('simCanvas');
+            const simCtx = simCanvas.getContext('2d');
+            const chartCanvas = document.getElementById('chartCanvas');
+            const chartCtx = chartCanvas.getContext('2d');
+            const compassCanvas = document.getElementById('compassCanvas');
+            const compassCtx = compassCanvas.getContext('2d');
+
+            // ============================================================================
+            // 3. AQI COLOR LUT (WITH TRANSPARENCY SO HCMC MAP IS VISIBLE UNDERNEATH)
+            // ============================================================================
+            const COLOR_LUT_SIZE = 1024;
+            const colorLUT = new Uint8ClampedArray(COLOR_LUT_SIZE * 4);
+
+            function buildColorLUT() {
+                const stops = [
+                    { c: 0,   r: 15,  g: 23,  b: 42,  a: 0   }, // Transparent over clean map
+                    { c: 16,  r: 16,  g: 185, b: 129, a: 45  }, // Soft Emerald Green (Tốt)
+                    { c: 35,  r: 250, g: 204, b: 21,  a: 115 }, // Yellow (Trung bình)
+                    { c: 75,  r: 249, g: 115, b: 22,  a: 165 }, // Orange (Kém)
+                    { c: 130, r: 239, g: 68,  b: 68,  a: 195 }, // Red (Xấu)
+                    { c: 200, r: 168, g: 85,  b: 247, a: 215 }, // Purple (Rất xấu)
+                    { c: 300, r: 153, g: 27,  b: 27,  a: 235 }  // Deep Maroon (Nguy hại)
+                ];
+
+                for (let i = 0; i < COLOR_LUT_SIZE; i++) {
+                    const val = (i / (COLOR_LUT_SIZE - 1)) * 300.0;
+                    let s0 = stops[0], s1 = stops[stops.length - 1];
+                    for (let k = 0; k < stops.length - 1; k++) {
+                        if (val >= stops[k].c && val <= stops[k + 1].c) {
+                            s0 = stops[k];
+                            s1 = stops[k + 1];
+                            break;
+                        }
+                    }
+                    const t = s1.c === s0.c ? 0 : Math.min(1, Math.max(0, (val - s0.c) / (s1.c - s0.c)));
+                    const idx = i * 4;
+                    colorLUT[idx]     = Math.round(s0.r + t * (s1.r - s0.r));
+                    colorLUT[idx + 1] = Math.round(s0.g + t * (s1.g - s0.g));
+                    colorLUT[idx + 2] = Math.round(s0.b + t * (s1.b - s0.b));
+                    colorLUT[idx + 3] = Math.round(s0.a + t * (s1.a - s0.a));
+                }
+            }
+            buildColorLUT();
+
+            function getColorRGB(concentration) {
+                const norm = Math.min(1, Math.max(0, concentration / 300.0));
+                const idx = Math.floor(norm * (COLOR_LUT_SIZE - 1)) * 4;
+                return [colorLUT[idx], colorLUT[idx + 1], colorLUT[idx + 2]];
+            }
+
+            function getAqiInfo(pm25) {
+                if (pm25 <= 25) {
+                    return {
+                        label: 'TỐT (An toàn)',
+                        badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+                        advice: 'Không khí TP.HCM tại khu vực này trong lành (đạt chuẩn tốt). Người dân có thể thoải mái tập thể dục và hoạt động ngoài trời.'
+                    };
+                } else if (pm25 <= 50) {
+                    return {
+                        label: 'TRUNG BÌNH (Đạt QCVN)',
+                        badgeClass: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
+                        advice: 'Nồng độ PM2.5 nằm trong giới hạn cho phép của QCVN 05:2023/BTNMT (≤ 50 µg/m³). Nhóm rất nhạy cảm nên lưu ý khi ra đường giờ cao điểm.'
+                    };
+                } else if (pm25 <= 100) {
+                    return {
+                        label: 'KÉM (Vượt chuẩn QCVN)',
+                        badgeClass: 'bg-orange-500/20 text-orange-300 border-orange-500/40',
+                        advice: 'Vượt ngưỡng QCVN 05:2023! Người dân tại TP.HCM khi lưu thông qua khu vực này cần đeo khẩu trang chống bụi mịn PM2.5.'
+                    };
+                } else if (pm25 <= 150) {
+                    return {
+                        label: 'XẤU (Có hại sức khỏe)',
+                        badgeClass: 'bg-red-500/20 text-red-300 border-red-500/40',
+                        advice: 'Cảnh báo ô nhiễm bụi mịn cao! Hạn chế tập thể dục ngoài trời dọc các trục giao thông, đóng cửa sổ hướng đón gió và bật máy lọc khí.'
+                    };
+                } else if (pm25 <= 250) {
+                    return {
+                        label: 'RẤT XẤU (Cảnh báo Đỏ)',
+                        badgeClass: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+                        advice: 'Ô nhiễm bụi mịn nghiêm trọng! Tránh các hoạt động thể chất ngoài trời, bắt buộc sử dụng khẩu trang tiêu chuẩn N95/KN95.'
+                    };
+                } else {
+                    return {
+                        label: 'NGUY HẠI (Khẩn cấp)',
+                        badgeClass: 'bg-rose-900/70 text-rose-200 border-rose-500/50',
+                        advice: 'Báo động khẩn cấp về bụi mịn PM2.5! Toàn bộ học sinh và người dân trong vùng vệt khói cần ở trong nhà kín.'
+                    };
+                }
+            }
+
+            let spareRandom = null;
+            function randNormal() {
+                if (spareRandom !== null) {
+                    const val = spareRandom;
+                    spareRandom = null;
+                    return val;
+                }
+                let u = 0, v = 0, s = 0;
+                do {
+                    u = Math.random() * 2 - 1;
+                    v = Math.random() * 2 - 1;
+                    s = u * u + v * v;
+                } while (s >= 1 || s === 0);
+                const mul = Math.sqrt(-2.0 * Math.log(s) / s);
+                spareRandom = v * mul;
+                return u * mul;
+            }
+
+            // ============================================================================
+            // 4. ADAPTIVE CFL SUB-STEPPING SPDE SOLVER
+            // ============================================================================
+            function stepSPDE(macroDt) {
+                const rad = (params.windAngle * Math.PI) / 180;
+                const ux = params.windSpeed * Math.cos(rad);
+                const uy = params.windSpeed * Math.sin(rad);
+                const K = params.K;
+                const lambda = params.lambda;
+                const sigma = params.sigma;
+
+                // Ambient background depends on rain washout
+                const bgTarget = lambda >= 0.15 ? 8.0 : AMBIENT_BG_HCMC;
+
+                const diffRate = K * (1.0 / (DX * DX) + 1.0 / (DY * DY));
+                const advRate = Math.abs(ux) / DX + Math.abs(uy) / DY;
+                const totalRate = diffRate + advRate + lambda;
+
+                const SAFE_CFL = 0.18;
+                const nSub = Math.max(1, Math.ceil((macroDt * totalRate) / SAFE_CFL));
+                const dtSub = macroDt / nSub;
+                const sqrtDtSub = Math.sqrt(dtSub);
+
+                const cflBadge = document.getElementById('cflStatusBadge');
+                if (cflBadge) {
+                    cflBadge.textContent = `CFL Ổn định (N_sub = ${nSub}, Δt = ${dtSub.toFixed(3)}s)`;
+                }
+
+                for (let step = 0; step < nSub; step++) {
+                    // 1. Inject Gaussian emission plumes around each active pollution source in TP.HCM
+                    for (let s = 0; s < sources.length; s++) {
+                        const src = sources[s];
+                        const sx = Math.round(src.x);
+                        const sy = Math.round(src.y);
+                        const radius = 2;
+                        for (let dy = -radius; dy <= radius; dy++) {
+                            const ny = sy + dy;
+                            if (ny < 1 || ny >= NY - 1) continue;
+                            for (let dx = -radius; dx <= radius; dx++) {
+                                const nx = sx + dx;
+                                if (nx < 1 || nx >= NX - 1) continue;
+                                const dist2 = dx * dx + dy * dy;
+                                const weight = Math.exp(-dist2 / 1.6);
+                                C[ny * NX + nx] += src.power * weight * dtSub;
+                            }
+                        }
+                    }
+
+                    // 2. Interior Grid Update: Upwind Advection + Diffusion + Washout + Stochastic Noise
+                    for (let j = 1; j < NY - 1; j++) {
+                        const rowOffset = j * NX;
+                        const rowUp = (j + 1) * NX;
+                        const rowDown = (j - 1) * NX;
+
+                        for (let i = 1; i < NX - 1; i++) {
+                            const idx = rowOffset + i;
+                            const cCenter = C[idx];
+
+                            const laplacian = (C[idx + 1] + C[idx - 1] + C[rowUp + i] + C[rowDown + i] - 4.0 * cCenter);
+
+                            const dCdx = ux >= 0 ? (cCenter - C[idx - 1]) : (C[idx + 1] - cCenter);
+                            const dCdy = uy >= 0 ? (cCenter - C[rowDown + i]) : (C[rowUp + i] - cCenter);
+                            const advection = ux * dCdx + uy * dCdy;
+
+                            // Decay toward urban background concentration bgTarget
+                            let cNew = cCenter + dtSub * (K * laplacian - advection - lambda * (cCenter - bgTarget));
+
+                            if (sigma > 0.0001 && cNew > 1.0) {
+                                const dW = sqrtDtSub * randNormal();
+                                const excess = Math.max(0, cNew - bgTarget * 0.6);
+                                const noiseAmp = sigma * (0.28 * excess + 1.5 * Math.sqrt(cNew));
+                                cNew += noiseAmp * dW;
+                            }
+
+                            if (cNew < 0.0) cNew = 0.0;
+                            else if (cNew > MAX_CONCENTRATION) cNew = MAX_CONCENTRATION;
+
+                            C_next[idx] = cNew;
+                        }
+                    }
+
+                    // 3. Outflow Neumann Boundary Conditions
+                    for (let i = 0; i < NX; i++) {
+                        C_next[i] = bgTarget + (C_next[NX + i] - bgTarget) * 0.9;
+                        C_next[(NY - 1) * NX + i] = bgTarget + (C_next[(NY - 2) * NX + i] - bgTarget) * 0.9;
+                    }
+                    for (let j = 0; j < NY; j++) {
+                        C_next[j * NX] = bgTarget + (C_next[j * NX + 1] - bgTarget) * 0.9;
+                        C_next[j * NX + (NX - 1)] = bgTarget + (C_next[j * NX + (NX - 2)] - bgTarget) * 0.9;
+                    }
+
+                    const temp = C;
+                    C = C_next;
+                    C_next = temp;
+                }
+
+                simTime += macroDt;
+            }
+
+            // ============================================================================
+            // 5. HCMC REALISTIC PRESETS
+            // ============================================================================
+            function loadPreset(presetKey) {
+                C.fill(AMBIENT_BG_HCMC);
+                C_next.fill(AMBIENT_BG_HCMC);
+                sources = [];
+
+                const presetNameEl = document.getElementById('activePresetName');
+
+                if (presetKey === 'industrial') {
+                    // Kịch bản 1: Cụm Cảng Cát Lái - KCN Hiệp Phước - KCN Tân Bình (Gió Đông-Nam mùa khô)
+                    params.K = 0.28;
+                    params.windSpeed = 2.2;
+                    params.windAngle = 135; // SE wind blowing toward NW (into Quận 7, Quận 1, Bình Thạnh)
+                    params.lambda = 0.025;
+                    params.sigma = 0.24;
+                    params.S0 = 175;
+
+                    const catLai = latLonToGrid(10.758, 106.786);
+                    const hiepPhuoc = latLonToGrid(10.688, 106.742);
+                    const kcnTanBinh = latLonToGrid(10.818, 106.625);
+                    const kcnLinhTrung = latLonToGrid(10.850, 106.768);
+
+                    sources.push(
+                        { x: catLai.x, y: catLai.y, power: 195, label: 'Cảng Cát Lái (Thủ Đức)' },
+                        { x: hiepPhuoc.x, y: hiepPhuoc.y, power: 175, label: 'KCN Hiệp Phước (Nhà Bè)' },
+                        { x: kcnTanBinh.x, y: kcnTanBinh.y, power: 160, label: 'KCN Tân Bình' },
+                        { x: kcnLinhTrung.x, y: kcnLinhTrung.y, power: 165, label: 'KCN Linh Trung - CNC' }
+                    );
+                    const stQ1 = latLonToGrid(10.775, 106.700);
+                    station.x = stQ1.x;
+                    station.y = stQ1.y;
+                    if (presetNameEl) presetNameEl.textContent = 'Cảng Cát Lái & Cụm KCN';
+
+                } else if (presetKey === 'traffic') {
+                    // Kịch bản 2: Giao thông giờ cao điểm sáng sớm & Nghịch nhiệt tại các nút giao TP.HCM
+                    params.K = 0.16;        // Low turbulent mixing due to morning thermal inversion
+                    params.windSpeed = 0.9; // Calm morning wind
+                    params.windAngle = 120;
+                    params.lambda = 0.015;  // Dry morning, minimal washout
+                    params.sigma = 0.32;
+                    params.S0 = 145;
+
+                    const trafficNodes = [
+                        { lat: 10.801, lon: 106.711, name: 'Ngã tư Hàng Xanh' },
+                        { lat: 10.800, lon: 106.653, name: 'Vòng xoay Lăng Cha Cả' },
+                        { lat: 10.772, lon: 106.668, name: 'Ngã 6 Dân Chủ (Q.3 - Q.10)' },
+                        { lat: 10.748, lon: 106.632, name: 'Vòng xoay Phú Lâm (Q.6)' },
+                        { lat: 10.752, lon: 106.702, name: 'Cầu Kênh Tẻ (Q.4 - Q.7)' },
+                        { lat: 10.844, lon: 106.615, name: 'Ngã tư An Sương (QL1A)' }
+                    ];
+                    trafficNodes.forEach(node => {
+                        const g = latLonToGrid(node.lat, node.lon);
+                        sources.push({ x: g.x, y: g.y, power: 145, label: node.name });
+                    });
+                    const stBT = latLonToGrid(10.790, 106.688);
+                    station.x = stBT.x;
+                    station.y = stBT.y;
+                    if (presetNameEl) presetNameEl.textContent = 'Cao điểm & Nghịch nhiệt sáng';
+
+                } else if (presetKey === 'straw') {
+                    // Kịch bản 3: Đốt sinh khối / rơm rạ ngoại thành Đông Nam - Tây Nam tràn vào nội đô
+                    params.K = 0.42;
+                    params.windSpeed = 2.8;
+                    params.windAngle = 140;
+                    params.lambda = 0.020;
+                    params.sigma = 0.30;
+                    params.S0 = 180;
+
+                    const biomassNodes = [
+                        { lat: 10.695, lon: 106.775, name: 'Đốt sinh khối Nhơn Trạch/Đông Nam' },
+                        { lat: 10.720, lon: 106.795, name: 'Đồng cỏ vùng ven phía Đông' },
+                        { lat: 10.680, lon: 106.665, name: 'Đồng rơm Nam Bình Chánh' },
+                        { lat: 10.715, lon: 106.610, name: 'Bãi đốt ngoại thành Tây Nam' }
+                    ];
+                    biomassNodes.forEach(node => {
+                        const g = latLonToGrid(node.lat, node.lon);
+                        sources.push({ x: g.x, y: g.y, power: 180, label: node.name });
+                    });
+                    const stQ7 = latLonToGrid(10.745, 106.715);
+                    station.x = stQ7.x;
+                    station.y = stQ7.y;
+                    if (presetNameEl) presetNameEl.textContent = 'Đốt sinh khối vùng ven';
+
+                } else if (presetKey === 'rain') {
+                    // Kịch bản 4: Mưa rào chiều mùa mưa TP.HCM (Gió mùa Tây-Nam 45°, rửa trôi mạnh λ = 0.28)
+                    C.fill(10.0);
+                    C_next.fill(10.0);
+                    params.K = 0.38;
+                    params.windSpeed = 3.0;
+                    params.windAngle = 45;  // SW Monsoon blowing toward NE
+                    params.lambda = 0.280;  // Heavy tropical rain washout!
+                    params.sigma = 0.18;
+                    params.S0 = 165;
+
+                    const rainNodes = [
+                        { lat: 10.758, lon: 106.786, name: 'Cảng Cát Lái' },
+                        { lat: 10.768, lon: 106.598, name: 'KCN Bình Tân' },
+                        { lat: 10.801, lon: 106.711, name: 'Trục Hàng Xanh' }
+                    ];
+                    rainNodes.forEach(node => {
+                        const g = latLonToGrid(node.lat, node.lon);
+                        sources.push({ x: g.x, y: g.y, power: 165, label: node.name });
+                    });
+                    const stCenter = latLonToGrid(10.782, 106.700);
+                    station.x = stCenter.x;
+                    station.y = stCenter.y;
+                    if (presetNameEl) presetNameEl.textContent = 'Mưa rào chiều TP.HCM';
+                }
+
+                syncSlidersFromParams();
+                updateSourceCountUI();
+                updateStationBadgeUI();
+
+                for (let w = 0; w < 28; w++) {
+                    stepSPDE(0.08);
+                }
+            }
+
+            // ============================================================================
+            // 6. 2D RENDERER (HCMC GIS VECTOR OVERLAY + TRANSPARENT HEATMAP + SOURCES)
+            // ============================================================================
+            function drawHcmGisOverlay2D(width, height) {
+                simCtx.save();
+
+                // 1. Draw Major Highways of HCMC
+                simCtx.strokeStyle = 'rgba(251, 191, 36, 0.28)';
+                simCtx.lineWidth = 2.0;
+                simCtx.setLineDash([6, 4]);
+                for (let h = 0; h < HCM_HIGHWAYS.length; h++) {
+                    const pts = HCM_HIGHWAYS[h].gridPts;
+                    simCtx.beginPath();
+                    for (let k = 0; k < pts.length; k++) {
+                        const px = (pts[k].fx / (NX - 1)) * width;
+                        const py = ((NY - 1 - pts[k].fy) / (NY - 1)) * height;
+                        if (k === 0) simCtx.moveTo(px, py);
+                        else simCtx.lineTo(px, py);
+                    }
+                    simCtx.stroke();
+                }
+                simCtx.setLineDash([]);
+
+                // 2. Draw Saigon River (Sông Sài Gòn - Sông Nhà Bè)
+                simCtx.lineCap = 'round';
+                simCtx.lineJoin = 'round';
+                // Outer river glow
+                simCtx.beginPath();
+                for (let k = 0; k < SAIGON_RIVER_LATLON.length; k++) {
+                    const pt = SAIGON_RIVER_LATLON[k];
+                    const px = (pt.fx / (NX - 1)) * width;
+                    const py = ((NY - 1 - pt.fy) / (NY - 1)) * height;
+                    if (k === 0) simCtx.moveTo(px, py);
+                    else simCtx.lineTo(px, py);
+                }
+                simCtx.strokeStyle = 'rgba(14, 165, 233, 0.48)';
+                simCtx.lineWidth = 7.5;
+                simCtx.stroke();
+
+                simCtx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+                simCtx.lineWidth = 3.0;
+                simCtx.stroke();
+
+                // 3. Draw Tàu Hủ - Bến Nghé Canal
+                simCtx.beginPath();
+                for (let k = 0; k < TAU_HU_CANAL.length; k++) {
+                    const pt = TAU_HU_CANAL[k];
+                    const px = (pt.fx / (NX - 1)) * width;
+                    const py = ((NY - 1 - pt.fy) / (NY - 1)) * height;
+                    if (k === 0) simCtx.moveTo(px, py);
+                    else simCtx.lineTo(px, py);
+                }
+                simCtx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+                simCtx.lineWidth = 2.2;
+                simCtx.stroke();
+
+                // 4. Draw District & Landmark Labels of TP.HCM
+                if (showHcmLabels) {
+                    for (let i = 0; i < HCM_LANDMARKS.length; i++) {
+                        const lm = HCM_LANDMARKS[i];
+                        const lx = (lm.gx / (NX - 1)) * width;
+                        const ly = ((NY - 1 - lm.gy) / (NY - 1)) * height;
+
+                        // Subtle district marker dot
+                        simCtx.beginPath();
+                        simCtx.arc(lx, ly, lm.major ? 3.2 : 2.2, 0, Math.PI * 2);
+                        simCtx.fillStyle = lm.major ? 'rgba(226, 232, 240, 0.9)' : 'rgba(148, 163, 184, 0.65)';
+                        simCtx.fill();
+
+                        simCtx.font = lm.major ? '700 10.5px Inter, sans-serif' : '500 9.5px Inter, sans-serif';
+                        simCtx.textAlign = 'center';
+                        simCtx.strokeStyle = 'rgba(2, 6, 23, 0.88)';
+                        simCtx.lineWidth = 3.0;
+                        simCtx.strokeText(lm.name, lx, ly - 6);
+                        simCtx.fillStyle = lm.major ? '#f8fafc' : '#cbd5e1';
+                        simCtx.fillText(lm.name, lx, ly - 6);
+                    }
+                }
+
+                simCtx.restore();
+            }
+
+            function render2D(width, height) {
+                const leafletEl = document.getElementById('hcmLeafletMap');
+                if (leafletEl) leafletEl.style.display = 'block';
+
+                simCtx.clearRect(0, 0, width, height);
+
+                // 1. Fill offscreen ImageData from concentration field C (with smooth alpha)
+                const data = heatmapImgData.data;
+                for (let j = 0; j < NY; j++) {
+                    const canvasY = NY - 1 - j;
+                    for (let i = 0; i < NX; i++) {
+                        const cVal = C[j * NX + i];
+                        const norm = Math.min(1, Math.max(0, cVal / 300.0));
+                        const lutIdx = Math.floor(norm * (COLOR_LUT_SIZE - 1)) * 4;
+                        const pIdx = (canvasY * NX + i) * 4;
+                        data[pIdx]     = colorLUT[lutIdx];
+                        data[pIdx + 1] = colorLUT[lutIdx + 1];
+                        data[pIdx + 2] = colorLUT[lutIdx + 2];
+                        data[pIdx + 3] = colorLUT[lutIdx + 3];
+                    }
+                }
+                offCtx.putImageData(heatmapImgData, 0, 0);
+
+                // Draw semi-transparent heatmap over the TP.HCM map
+                simCtx.save();
+                simCtx.imageSmoothingEnabled = true;
+                simCtx.imageSmoothingQuality = 'high';
+                simCtx.drawImage(offscreenCanvas, 0, 0, width, height);
+
+                // 2. Draw TP.HCM Rivers, Highways & District Labels
+                drawHcmGisOverlay2D(width, height);
+
+                // 3. Optional AQI Threshold Contours (50 QCVN and 150 Red Alert)
+                if (showContours) {
+                    drawContourCells(width, height, 50, 'rgba(250, 204, 21, 0.42)');
+                    drawContourCells(width, height, 150, 'rgba(244, 63, 94, 0.65)');
+                }
+
+                // 4. Animated Wind / Rain Particles across TP.HCM
+                if (showParticles) {
+                    const rad = (params.windAngle * Math.PI) / 180;
+                    const ux = params.windSpeed * Math.cos(rad);
+                    const uy = params.windSpeed * Math.sin(rad);
+
+                    simCtx.strokeStyle = params.lambda >= 0.15 ? 'rgba(125, 211, 252, 0.72)' : 'rgba(241, 245, 249, 0.48)';
+                    simCtx.lineWidth = params.lambda >= 0.15 ? 1.8 : 1.4;
+
+                    for (let p = 0; p < particles.length; p++) {
+                        const pt = particles[p];
+                        const px = (pt.x / (NX - 1)) * width;
+                        const py = ((NY - 1 - pt.y) / (NY - 1)) * height;
+
+                        const tailLen = Math.max(5, params.windSpeed * 5.2);
+                        const tx = px - Math.cos(rad) * tailLen;
+                        const ty = py + Math.sin(rad) * tailLen;
+
+                        simCtx.beginPath();
+                        simCtx.moveTo(tx, ty);
+                        simCtx.lineTo(px, py);
+                        simCtx.stroke();
+
+                        simCtx.fillStyle = 'rgba(255,255,255,0.75)';
+                        simCtx.fillRect(px - 1, py - 1, 2, 2);
+
+                        if (isRunning) {
+                            const jitter = params.sigma * 0.25;
+                            pt.x += ux * 0.20 + (Math.random() - 0.5) * jitter;
+                            pt.y += uy * 0.20 + (Math.random() - 0.5) * jitter;
+                            pt.age += 1;
+
+                            if (pt.x < 0) pt.x += NX - 1;
+                            if (pt.x >= NX - 1) pt.x -= NX - 1;
+                            if (pt.y < 0) pt.y += NY - 1;
+                            if (pt.y >= NY - 1) pt.y -= NY - 1;
+                            if (pt.age > 120) {
+                                pt.x = Math.random() * (NX - 1);
+                                pt.y = Math.random() * (NY - 1);
+                                pt.age = 0;
+                            }
+                        }
+                    }
+                }
+
+                // 5. Draw Active Pollution Sources on TP.HCM Map
+                const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.006);
+                for (let s = 0; s < sources.length; s++) {
+                    const src = sources[s];
+                    const sx = (src.x / (NX - 1)) * width;
+                    const sy = ((NY - 1 - src.y) / (NY - 1)) * height;
+
+                    simCtx.beginPath();
+                    simCtx.arc(sx, sy, 10 + pulse * 6, 0, Math.PI * 2);
+                    simCtx.strokeStyle = 'rgba(245, 158, 11, 0.85)';
+                    simCtx.lineWidth = 2.2;
+                    simCtx.stroke();
+
+                    simCtx.beginPath();
+                    simCtx.arc(sx, sy, 7, 0, Math.PI * 2);
+                    simCtx.fillStyle = '#f59e0b';
+                    simCtx.fill();
+                    simCtx.lineWidth = 2;
+                    simCtx.strokeStyle = '#0f172a';
+                    simCtx.stroke();
+
+                    simCtx.font = '700 10.5px Inter, sans-serif';
+                    simCtx.strokeStyle = 'rgba(2, 6, 23, 0.9)';
+                    simCtx.lineWidth = 3;
+                    simCtx.strokeText(src.label || `Nguồn #${s + 1}`, sx + 10, sy + 4);
+                    simCtx.fillStyle = '#fde68a';
+                    simCtx.fillText(src.label || `Nguồn #${s + 1}`, sx + 10, sy + 4);
+                }
+
+                // 6. Draw Monitoring Station Marker
+                const stX = (station.x / (NX - 1)) * width;
+                const stY = ((NY - 1 - station.y) / (NY - 1)) * height;
+
+                simCtx.beginPath();
+                simCtx.arc(stX, stY, 13, 0, Math.PI * 2);
+                simCtx.strokeStyle = '#38bdf8';
+                simCtx.lineWidth = 2.2;
+                simCtx.setLineDash([4, 3]);
+                simCtx.stroke();
+                simCtx.setLineDash([]);
+
+                simCtx.beginPath();
+                simCtx.arc(stX, stY, 6, 0, Math.PI * 2);
+                simCtx.fillStyle = '#0ea5e9';
+                simCtx.fill();
+                simCtx.strokeStyle = '#ffffff';
+                simCtx.lineWidth = 2;
+                simCtx.stroke();
+
+                const stVal = sampleConcentration(station.x, station.y);
+                const nearLm = findNearestLandmark(station.x, station.y);
+                const badgeText = `Trạm ${nearLm.name}: ${stVal.toFixed(1)} µg/m³`;
+                simCtx.font = '700 11px JetBrains Mono, monospace';
+                const textW = simCtx.measureText(badgeText).width;
+                const boxX = Math.min(width - textW - 20, Math.max(8, stX - textW / 2 - 6));
+                const boxY = Math.max(46, stY - 30);
+
+                simCtx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+                simCtx.strokeStyle = '#38bdf8';
+                simCtx.lineWidth = 1.4;
+                simCtx.beginPath();
+                simCtx.roundRect(boxX, boxY, textW + 14, 21, 6);
+                simCtx.fill();
+                simCtx.stroke();
+
+                simCtx.fillStyle = '#e0f2fe';
+                simCtx.fillText(badgeText, boxX + 7, boxY + 14);
+
+                simCtx.restore();
+            }
+
+            function drawContourCells(width, height, threshold, strokeColor) {
+                simCtx.save();
+                simCtx.fillStyle = strokeColor;
+                const cellW = width / NX;
+                const cellH = height / NY;
+                for (let j = 1; j < NY - 1; j++) {
+                    const row = j * NX;
+                    for (let i = 1; i < NX - 1; i++) {
+                        const c = C[row + i];
+                        if (c >= threshold) {
+                            if (
+                                C[row + i - 1] < threshold ||
+                                C[row + i + 1] < threshold ||
+                                C[(j - 1) * NX + i] < threshold ||
+                                C[(j + 1) * NX + i] < threshold
+                            ) {
+                                const cx = i * cellW;
+                                const cy = (NY - 1 - j) * cellH;
+                                simCtx.fillRect(cx, cy, Math.ceil(cellW), Math.ceil(cellH));
+                            }
+                        }
+                    }
+                }
+                simCtx.restore();
+            }
+
+            // ============================================================================
+            // 7. 3D SURFACE PLUME RENDERER (WITH 3D SAIGON RIVER & HCMC DISTRICTS)
+            // ============================================================================
+            function project3DPoint(gx, gy, gz, width, height) {
+                const nx = (gx / (NX - 1)) * 2.0 - 1.0;
+                const ny = (gy / (NY - 1)) * 2.0 - 1.0;
+                const nz = (gz / 260.0) * 0.95;
+
+                const cosY = Math.cos(camera3D.yaw);
+                const sinY = Math.sin(camera3D.yaw);
+                const rx = nx * cosY - ny * sinY;
+                const ry = nx * sinY + ny * cosY;
+
+                const cosP = Math.cos(camera3D.pitch);
+                const sinP = Math.sin(camera3D.pitch);
+                const cy = ry * cosP - nz * sinP;
+                const cz = ry * sinP + nz * cosP;
+
+                const fov = 2.6;
+                const dist = 3.2;
+                const scale = Math.min(width, height) * 0.42 * (fov / (dist + cy * 0.65));
+
+                const screenX = width * 0.5 + rx * scale;
+                const screenY = height * 0.57 - cz * scale;
+
+                return { x: screenX, y: screenY, depth: cy };
+            }
+
+            function unproject3DFloor(screenX, screenY, width, height) {
+                let bestI = station.x;
+                let bestJ = station.y;
+                let minDist2 = Infinity;
+
+                for (let j = 2; j < NY - 2; j += 2) {
+                    for (let i = 2; i < NX - 2; i += 2) {
+                        const pt = project3DPoint(i, j, 0, width, height);
+                        const dx = pt.x - screenX;
+                        const dy = pt.y - screenY;
+                        const d2 = dx * dx + dy * dy;
+                        if (d2 < minDist2) {
+                            minDist2 = d2;
+                            bestI = i;
+                            bestJ = j;
+                        }
+                    }
+                }
+                return { x: bestI, y: bestJ };
+            }
+
+            function render3D(width, height) {
+                const leafletEl = document.getElementById('hcmLeafletMap');
+                if (leafletEl) leafletEl.style.display = 'none';
+
+                simCtx.save();
+                const grad = simCtx.createLinearGradient(0, 0, 0, height);
+                grad.addColorStop(0, '#070b14');
+                grad.addColorStop(1, '#0f172a');
+                simCtx.fillStyle = grad;
+                simCtx.fillRect(0, 0, width, height);
+
+                const stride = 2;
+                const quads = [];
+
+                for (let j = 0; j < NY - stride; j += stride) {
+                    for (let i = 0; i < NX - stride; i += stride) {
+                        const c00 = C[j * NX + i];
+                        const c10 = C[j * NX + (i + stride)];
+                        const c11 = C[(j + stride) * NX + (i + stride)];
+                        const c01 = C[(j + stride) * NX + i];
+
+                        const p00 = project3DPoint(i, j, c00, width, height);
+                        const p10 = project3DPoint(i + stride, j, c10, width, height);
+                        const p11 = project3DPoint(i + stride, j + stride, c11, width, height);
+                        const p01 = project3DPoint(i, j + stride, c01, width, height);
+
+                        const avgDepth = (p00.depth + p10.depth + p11.depth + p01.depth) * 0.25;
+                        const avgC = (c00 + c10 + c11 + c01) * 0.25;
+
+                        quads.push({ p00, p10, p11, p01, depth: avgDepth, c: avgC });
+                    }
+                }
+
+                quads.sort((a, b) => b.depth - a.depth);
+
+                for (let q = 0; q < quads.length; q++) {
+                    const quad = quads[q];
+                    const [r, g, b] = getColorRGB(quad.c);
+
+                    simCtx.beginPath();
+                    simCtx.moveTo(quad.p00.x, quad.p00.y);
+                    simCtx.lineTo(quad.p10.x, quad.p10.y);
+                    simCtx.lineTo(quad.p11.x, quad.p11.y);
+                    simCtx.lineTo(quad.p01.x, quad.p01.y);
+                    simCtx.closePath();
+
+                    simCtx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.86)`;
+                    simCtx.fill();
+
+                    simCtx.strokeStyle = quad.c > 25 ? `rgba(255, 255, 255, 0.16)` : `rgba(51, 65, 85, 0.35)`;
+                    simCtx.lineWidth = 0.7;
+                    simCtx.stroke();
+                }
+
+                // Draw 3D Saigon River on surface
+                simCtx.beginPath();
+                for (let k = 0; k < SAIGON_RIVER_LATLON.length; k++) {
+                    const pt = SAIGON_RIVER_LATLON[k];
+                    const cSurf = sampleConcentration(pt.x, pt.y);
+                    const p3 = project3DPoint(pt.fx, pt.fy, cSurf + 2, width, height);
+                    if (k === 0) simCtx.moveTo(p3.x, p3.y);
+                    else simCtx.lineTo(p3.x, p3.y);
+                }
+                simCtx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+                simCtx.lineWidth = 3.2;
+                simCtx.stroke();
+
+                // Draw Major HCMC District names in 3D
+                if (showHcmLabels) {
+                    simCtx.font = '700 10px Inter, sans-serif';
+                    simCtx.textAlign = 'center';
+                    for (let i = 0; i < HCM_LANDMARKS.length; i++) {
+                        const lm = HCM_LANDMARKS[i];
+                        if (!lm.major) continue;
+                        const cSurf = sampleConcentration(lm.gx, lm.gy);
+                        const p3 = project3DPoint(lm.gx, lm.gy, cSurf + 8, width, height);
+                        simCtx.fillStyle = 'rgba(248, 250, 252, 0.88)';
+                        simCtx.fillText(lm.name, p3.x, p3.y);
+                    }
+                }
+
+                // Draw vertical beacon pillars for Emission Sources
+                for (let s = 0; s < sources.length; s++) {
+                    const src = sources[s];
+                    const cTop = Math.max(sampleConcentration(src.x, src.y), 90);
+                    const pBase = project3DPoint(src.x, src.y, 0, width, height);
+                    const pTop = project3DPoint(src.x, src.y, cTop + 35, width, height);
+
+                    simCtx.beginPath();
+                    simCtx.moveTo(pBase.x, pBase.y);
+                    simCtx.lineTo(pTop.x, pTop.y);
+                    simCtx.strokeStyle = '#f59e0b';
+                    simCtx.lineWidth = 2.2;
+                    simCtx.stroke();
+
+                    simCtx.beginPath();
+                    simCtx.arc(pTop.x, pTop.y, 5, 0, Math.PI * 2);
+                    simCtx.fillStyle = '#fbbf24';
+                    simCtx.fill();
+                    simCtx.strokeStyle = '#0f172a';
+                    simCtx.lineWidth = 1.5;
+                    simCtx.stroke();
+                }
+
+                // Draw Monitoring Station 3D Beacon
+                const stC = sampleConcentration(station.x, station.y);
+                const stBase = project3DPoint(station.x, station.y, stC, width, height);
+                const stTop = project3DPoint(station.x, station.y, stC + 75, width, height);
+
+                simCtx.beginPath();
+                simCtx.moveTo(stBase.x, stBase.y);
+                simCtx.lineTo(stTop.x, stTop.y);
+                simCtx.strokeStyle = '#38bdf8';
+                simCtx.lineWidth = 2.2;
+                simCtx.stroke();
+
+                simCtx.beginPath();
+                simCtx.arc(stTop.x, stTop.y, 6, 0, Math.PI * 2);
+                simCtx.fillStyle = '#0ea5e9';
+                simCtx.fill();
+                simCtx.strokeStyle = '#ffffff';
+                simCtx.lineWidth = 1.8;
+                simCtx.stroke();
+
+                const nearLm = findNearestLandmark(station.x, station.y);
+                simCtx.font = '700 11px JetBrains Mono, monospace';
+                simCtx.fillStyle = '#7dd3fc';
+                simCtx.fillText(`Trạm ${nearLm.name}: ${stC.toFixed(1)} µg/m³`, stTop.x - 55, stTop.y - 10);
+
+                simCtx.restore();
+            }
+
+            // ============================================================================
+            // 8. REAL-TIME LINE CHART & COMPASS RENDERERS
+            // ============================================================================
+            function sampleConcentration(gx, gy) {
+                const ix = Math.min(NX - 1, Math.max(0, Math.round(gx)));
+                const iy = Math.min(NY - 1, Math.max(0, Math.round(gy)));
+                return C[iy * NX + ix];
+            }
+
+            function renderCompass() {
+                const w = compassCanvas.width;
+                const h = compassCanvas.height;
+                const cx = w / 2;
+                const cy = h / 2;
+                const r = w / 2 - 6;
+
+                compassCtx.clearRect(0, 0, w, h);
+
+                compassCtx.beginPath();
+                compassCtx.arc(cx, cy, r, 0, Math.PI * 2);
+                compassCtx.strokeStyle = '#334155';
+                compassCtx.lineWidth = 1.5;
+                compassCtx.stroke();
+
+                compassCtx.font = '700 9px Inter, sans-serif';
+                compassCtx.fillStyle = '#94a3b8';
+                compassCtx.textAlign = 'center';
+                compassCtx.textBaseline = 'middle';
+                compassCtx.fillText('B', cx, 8);
+                compassCtx.fillText('N', cx, h - 7);
+                compassCtx.fillText('Đ', w - 7, cy);
+                compassCtx.fillText('T', 7, cy);
+
+                const rad = (params.windAngle * Math.PI) / 180;
+                const ax = cx + Math.cos(rad) * (r - 8);
+                const ay = cy - Math.sin(rad) * (r - 8);
+                const bx = cx - Math.cos(rad) * (r - 12);
+                const by = cy + Math.sin(rad) * (r - 12);
+
+                compassCtx.beginPath();
+                compassCtx.moveTo(bx, by);
+                compassCtx.lineTo(ax, ay);
+                compassCtx.strokeStyle = '#38bdf8';
+                compassCtx.lineWidth = 2.5;
+                compassCtx.stroke();
+
+                const headLen = 7;
+                compassCtx.beginPath();
+                compassCtx.moveTo(ax, ay);
+                compassCtx.lineTo(
+                    ax - headLen * Math.cos(rad - 0.45),
+                    ay + headLen * Math.sin(rad - 0.45)
+                );
+                compassCtx.lineTo(
+                    ax - headLen * Math.cos(rad + 0.45),
+                    ay + headLen * Math.sin(rad + 0.45)
+                );
+                compassCtx.closePath();
+                compassCtx.fillStyle = '#38bdf8';
+                compassCtx.fill();
+            }
+
+            function renderLineChart() {
+                const rect = chartCanvas.getBoundingClientRect();
+                if (chartCanvas.width !== Math.floor(rect.width) || chartCanvas.height !== Math.floor(rect.height)) {
+                    chartCanvas.width = Math.floor(rect.width);
+                    chartCanvas.height = Math.floor(rect.height);
+                }
+                const w = chartCanvas.width;
+                const h = chartCanvas.height;
+                chartCtx.clearRect(0, 0, w, h);
+
+                if (historyInstant.length < 2) return;
+
+                let maxY = 100;
+                for (let i = 0; i < historyInstant.length; i++) {
+                    if (historyInstant[i] > maxY) maxY = historyInstant[i];
+                }
+                maxY = Math.ceil(maxY * 1.15 / 25) * 25;
+
+                const padL = 36, padR = 12, padT = 12, padB = 20;
+                const plotW = w - padL - padR;
+                const plotH = h - padT - padB;
+
+                chartCtx.strokeStyle = 'rgba(51, 65, 85, 0.5)';
+                chartCtx.lineWidth = 1;
+                chartCtx.font = '10px JetBrains Mono, monospace';
+                chartCtx.fillStyle = '#64748b';
+                chartCtx.textAlign = 'right';
+
+                for (let g = 0; g <= 3; g++) {
+                    const yVal = (maxY / 3) * g;
+                    const yPos = padT + plotH - (g / 3) * plotH;
+                    chartCtx.beginPath();
+                    chartCtx.moveTo(padL, yPos);
+                    chartCtx.lineTo(w - padR, yPos);
+                    chartCtx.stroke();
+                    chartCtx.fillText(Math.round(yVal), padL - 5, yPos + 3);
+                }
+
+                // Area under SPDE curve
+                chartCtx.beginPath();
+                for (let i = 0; i < historyInstant.length; i++) {
+                    const x = padL + (i / (MAX_HISTORY - 1)) * plotW;
+                    const y = padT + plotH - Math.min(1, historyInstant[i] / maxY) * plotH;
+                    if (i === 0) chartCtx.moveTo(x, y);
+                    else chartCtx.lineTo(x, y);
+                }
+                const lastX = padL + ((historyInstant.length - 1) / (MAX_HISTORY - 1)) * plotW;
+                chartCtx.lineTo(lastX, padT + plotH);
+                chartCtx.lineTo(padL, padT + plotH);
+                chartCtx.closePath();
+
+                const areaGrad = chartCtx.createLinearGradient(0, padT, 0, padT + plotH);
+                areaGrad.addColorStop(0, 'rgba(56, 189, 248, 0.32)');
+                areaGrad.addColorStop(1, 'rgba(56, 189, 248, 0.02)');
+                chartCtx.fillStyle = areaGrad;
+                chartCtx.fill();
+
+                // Moving Average
+                chartCtx.beginPath();
+                for (let i = 0; i < historySmooth.length; i++) {
+                    const x = padL + (i / (MAX_HISTORY - 1)) * plotW;
+                    const y = padT + plotH - Math.min(1, historySmooth[i] / maxY) * plotH;
+                    if (i === 0) chartCtx.moveTo(x, y);
+                    else chartCtx.lineTo(x, y);
+                }
+                chartCtx.strokeStyle = 'rgba(251, 191, 36, 0.88)';
+                chartCtx.lineWidth = 1.6;
+                chartCtx.setLineDash([4, 3]);
+                chartCtx.stroke();
+                chartCtx.setLineDash([]);
+
+                // Instant SPDE curve
+                chartCtx.beginPath();
+                for (let i = 0; i < historyInstant.length; i++) {
+                    const x = padL + (i / (MAX_HISTORY - 1)) * plotW;
+                    const y = padT + plotH - Math.min(1, historyInstant[i] / maxY) * plotH;
+                    if (i === 0) chartCtx.moveTo(x, y);
+                    else chartCtx.lineTo(x, y);
+                }
+                chartCtx.strokeStyle = '#38bdf8';
+                chartCtx.lineWidth = 2.0;
+                chartCtx.stroke();
+            }
+
+            // ============================================================================
+            // 9. UI SYNCHRONIZATION & SOURCE LIST MANAGEMENT
+            // ============================================================================
+            function getVietnameseCompassName(deg) {
+                const dirs = ['Đông', 'Đông-Bắc', 'Bắc', 'Tây-Bắc', 'Tây', 'Tây-Nam', 'Nam', 'Đông-Nam'];
+                const idx = Math.round(((deg % 360) / 45)) % 8;
+                return `${dirs[idx]} (${Math.round(deg)}°)`;
+            }
+
+            function syncSlidersFromParams() {
+                document.getElementById('sliderK').value = params.K;
+                const eddyReal = Math.round(params.K * 100);
+                document.getElementById('valK').textContent = `${eddyReal} m²/s (K=${params.K.toFixed(2)})`;
+
+                document.getElementById('sliderU').value = params.windSpeed;
+                document.getElementById('valU').textContent = `${params.windSpeed.toFixed(1)} m/s`;
+
+                document.getElementById('sliderTheta').value = params.windAngle;
+                document.getElementById('valTheta').textContent = `${Math.round(params.windAngle)}°`;
+                document.getElementById('valWindDirText').textContent = getVietnameseCompassName(params.windAngle);
+
+                document.getElementById('sliderLambda').value = params.lambda;
+                const lamState = params.lambda >= 0.15 ? 'Mưa rửa trôi' : 'Khô ráo';
+                document.getElementById('valLambda').textContent = `${params.lambda.toFixed(3)} (${lamState})`;
+
+                document.getElementById('sliderSigma').value = params.sigma;
+                document.getElementById('valSigma').textContent = params.sigma.toFixed(2);
+
+                document.getElementById('sliderS0').value = params.S0;
+                document.getElementById('valS0').textContent = `${Math.round(params.S0)} µg/m³·s`;
+
+                renderCompass();
+            }
+
+            window.removeSourceAtIndex = function (idx) {
+                if (idx >= 0 && idx < sources.length) {
+                    const removed = sources.splice(idx, 1)[0];
+                    updateSourceCountUI();
+                    showToast(`🗑️ Đã xóa nguồn ô nhiễm: ${removed.label}`);
+                }
+            };
+
+            function updateSourceCountUI() {
+                const badge = document.getElementById('sourceCountBadge');
+                if (badge) {
+                    badge.textContent = `${sources.length} nguồn đang phát`;
+                }
+                const listEl = document.getElementById('activeSourcesList');
+                if (!listEl) return;
+                if (sources.length === 0) {
+                    listEl.innerHTML = `<span class="text-[11px] text-slate-500 italic px-1">Chưa có nguồn phát thải nào. Bật nút "Tạo Nguồn Ô Nhiễm" rồi click vào bản đồ TP.HCM!</span>`;
+                    return;
+                }
+                listEl.innerHTML = sources.map((s, idx) => `
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-medium bg-amber-500/15 text-amber-200 border border-amber-500/30">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                        <span>${s.label}</span>
+                        <button type="button" onclick="window.removeSourceAtIndex(${idx})" class="text-amber-400 hover:text-rose-400 font-bold ml-0.5" title="Xóa nguồn này">×</button>
+                    </span>
+                `).join('');
+            }
+
+            function updateStationBadgeUI() {
+                const nearLm = findNearestLandmark(station.x, station.y);
+                const ll = gridToLatLon(station.x, station.y);
+                const badge = document.getElementById('stationCoordsBadge');
+                if (badge) {
+                    badge.textContent = `${nearLm.name} (${ll.lat.toFixed(2)}°N, ${ll.lon.toFixed(2)}°E)`;
+                }
+            }
+
+            function updateSourceModeUI() {
+                const btn = document.getElementById('toggleSourceModeBtn');
+                const dot = document.getElementById('sourceModeDot');
+                const label = document.getElementById('sourceModeLabel');
+                const actionBadge = document.getElementById('sourceModeActionBadge');
+                const hint = document.getElementById('interactionHintText');
+                const bannerDot = document.getElementById('bannerIndicatorDot');
+                const bannerText = document.getElementById('bannerModeText');
+                const toolbarBtn = document.getElementById('toolbarToggleSourceBtn');
+                const toolbarTxt = document.getElementById('toolbarSourceBtnText');
+
+                if (isSourcePlaceMode) {
+                    btn.className = 'w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between transition-all duration-200 border-2 bg-amber-500/20 border-amber-400 text-amber-200 source-btn-active shadow-lg';
+                    dot.className = 'w-3 h-3 rounded-full bg-amber-400 animate-ping';
+                    label.textContent = 'Nút Tạo Nguồn Ô Nhiễm: ĐANG BẬT';
+                    actionBadge.className = 'px-2.5 py-1 rounded-lg text-xs font-mono bg-amber-400 text-slate-950 font-bold';
+                    actionBadge.textContent = 'Bấm để TẮT';
+                    hint.innerHTML = '<i class="fa-solid fa-fire-burner text-amber-400 mr-1"></i><b>CHẾ ĐỘ TẠO NGUỒN ĐANG BẬT:</b> Click chuột vào bất kỳ Quận/Huyện nào trên bản đồ TP.HCM để đặt nguồn phát thải bụi mịn mới. Khi không muốn tạo nữa, hãy bấm TẮT nút trên!';
+                    bannerDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping';
+                    bannerText.textContent = 'ĐANG BẬT TẠO NGUỒN Ô NHIỄM: Click vào bản đồ TP.HCM để đặt nguồn phát thải mới';
+                    simCanvas.style.cursor = 'copy';
+
+                    if (toolbarBtn && toolbarTxt) {
+                        toolbarBtn.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold border-2 transition flex items-center gap-2 bg-amber-500/25 border-amber-400 text-amber-200 source-btn-active';
+                        toolbarTxt.textContent = 'Tạo nguồn ô nhiễm: ĐANG BẬT (Click bản đồ)';
+                    }
+                } else {
+                    btn.className = 'w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between transition-all duration-200 border-2 bg-slate-800/90 border-slate-700 text-slate-200 hover:border-slate-500 shadow-md';
+                    dot.className = 'w-3 h-3 rounded-full bg-slate-400';
+                    label.textContent = 'Nút Tạo Nguồn Ô Nhiễm: ĐANG TẮT';
+                    actionBadge.className = 'px-2.5 py-1 rounded-lg text-xs font-mono bg-slate-700 text-slate-300';
+                    actionBadge.textContent = 'Bấm để BẬT';
+                    hint.innerHTML = '<i class="fa-solid fa-circle-info text-sky-400 mr-1"></i>Khi <b>ĐANG TẮT</b>: Click lên bản đồ TP.HCM để dời <b>Trạm quan trắc AQI</b> tới Quận/Huyện cần đo (hoặc kéo chuột xoay 3D) mà không tạo nguồn ô nhiễm.';
+                    bannerDot.className = 'w-2.5 h-2.5 rounded-full bg-sky-400';
+                    bannerText.textContent = viewMode === '2D'
+                        ? 'Chế độ Trạm quan trắc (Tạo nguồn TẮT): Click lên bản đồ TP.HCM để dời Trạm đo AQI'
+                        : 'Chế độ 3D (Tạo nguồn TẮT): Kéo chuột để xoay 3D hoặc click để dời Trạm đo AQI';
+                    simCanvas.style.cursor = viewMode === '3D' ? 'grab' : 'crosshair';
+
+                    if (toolbarBtn && toolbarTxt) {
+                        toolbarBtn.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-2 bg-slate-800 border-slate-700 text-slate-200 hover:border-amber-400/60';
+                        toolbarTxt.textContent = 'Tạo nguồn ô nhiễm: TẮT (Bấm để Bật)';
+                    }
+                }
+            }
+
+            function toggleSourceCreationMode() {
+                isSourcePlaceMode = !isSourcePlaceMode;
+                updateSourceModeUI();
+                if (isSourcePlaceMode) {
+                    showToast('🔥 Đã BẬT chế độ Tạo nguồn ô nhiễm: Click lên bản đồ TP.HCM để đặt nguồn!');
+                } else {
+                    showToast('🛡️ Đã TẮT chế độ Tạo nguồn ô nhiễm: Click bản đồ sẽ dời Trạm quan trắc AQI.');
+                }
+            }
+
+            document.getElementById('toggleSourceModeBtn').addEventListener('click', toggleSourceCreationMode);
+            document.getElementById('toolbarToggleSourceBtn').addEventListener('click', toggleSourceCreationMode);
+
+            document.getElementById('clearSourcesBtn').addEventListener('click', () => {
+                sources = [];
+                updateSourceCountUI();
+                showToast('🗑️ Đã xóa toàn bộ nguồn phát thải trên bản đồ TP.HCM.');
+            });
+
+            document.getElementById('clearAirBtn').addEventListener('click', () => {
+                C.fill(AMBIENT_BG_HCMC);
+                C_next.fill(AMBIENT_BG_HCMC);
+                historyInstant.length = 0;
+                historySmooth.length = 0;
+                showToast('🌬️ Đã làm mới bầu không khí TP.HCM về mức nền tự nhiên.');
+            });
+
+            document.getElementById('pauseResumeBtn').addEventListener('click', () => {
+                isRunning = !isRunning;
+                const icon = document.getElementById('pauseResumeIcon');
+                const txt = document.getElementById('pauseResumeText');
+                const btn = document.getElementById('pauseResumeBtn');
+                if (isRunning) {
+                    icon.className = 'fa-solid fa-pause';
+                    txt.textContent = 'Đang chạy';
+                    btn.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition flex items-center gap-1.5';
+                } else {
+                    icon.className = 'fa-solid fa-play';
+                    txt.textContent = 'Tạm dừng';
+                    btn.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition flex items-center gap-1.5';
+                }
+            });
+
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const key = btn.getAttribute('data-preset');
+                    loadPreset(key);
+                });
+            });
+
+            // Sliders
+            document.getElementById('sliderK').addEventListener('input', (e) => {
+                params.K = parseFloat(e.target.value);
+                syncSlidersFromParams();
+            });
+            document.getElementById('sliderU').addEventListener('input', (e) => {
+                params.windSpeed = parseFloat(e.target.value);
+                syncSlidersFromParams();
+            });
+            document.getElementById('sliderTheta').addEventListener('input', (e) => {
+                params.windAngle = parseFloat(e.target.value);
+                syncSlidersFromParams();
+            });
+            document.getElementById('sliderLambda').addEventListener('input', (e) => {
+                params.lambda = parseFloat(e.target.value);
+                syncSlidersFromParams();
+            });
+            document.getElementById('sliderSigma').addEventListener('input', (e) => {
+                params.sigma = parseFloat(e.target.value);
+                syncSlidersFromParams();
+            });
+            document.getElementById('sliderS0').addEventListener('input', (e) => {
+                params.S0 = parseFloat(e.target.value);
+                syncSlidersFromParams();
+                sources.forEach(s => { s.power = params.S0; });
+            });
+
+            // Interactive Compass Click/Drag
+            function updateWindFromCompassEvent(e) {
+                const rect = compassCanvas.getBoundingClientRect();
+                const cx = rect.width / 2;
+                const cy = rect.height / 2;
+                const dx = (e.clientX - rect.left) - cx;
+                const dy = cy - (e.clientY - rect.top);
+                let deg = (Math.atan2(dy, dx) * 180) / Math.PI;
+                if (deg < 0) deg += 360;
+                params.windAngle = Math.round(deg);
+                syncSlidersFromParams();
+            }
+            let isDraggingCompass = false;
+            compassCanvas.addEventListener('pointerdown', (e) => {
+                isDraggingCompass = true;
+                updateWindFromCompassEvent(e);
+            });
+            window.addEventListener('pointermove', (e) => {
+                if (isDraggingCompass) updateWindFromCompassEvent(e);
+            });
+            window.addEventListener('pointerup', () => {
+                isDraggingCompass = false;
+            });
+
+            // 2D / 3D View Switcher
+            const view2DBtn = document.getElementById('view2DBtn');
+            const view3DBtn = document.getElementById('view3DBtn');
+            const resetCamBtn = document.getElementById('resetCamera3DBtn');
+
+            view2DBtn.addEventListener('click', () => {
+                viewMode = '2D';
+                view2DBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-sky-500 text-slate-950 shadow';
+                view3DBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-slate-200';
+                resetCamBtn.classList.add('hidden');
+                updateSourceModeUI();
+                if (hcmMap) setTimeout(() => hcmMap.invalidateSize(), 50);
+            });
+
+            view3DBtn.addEventListener('click', () => {
+                viewMode = '3D';
+                view3DBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-sky-500 text-slate-950 shadow';
+                view2DBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-slate-200';
+                resetCamBtn.classList.remove('hidden');
+                updateSourceModeUI();
+            });
+
+            resetCamBtn.addEventListener('click', () => {
+                camera3D.yaw = -0.62;
+                camera3D.pitch = 0.64;
+            });
+
+            document.getElementById('toggleHcmLabels').addEventListener('change', (e) => {
+                showHcmLabels = e.target.checked;
+            });
+            document.getElementById('toggleParticles').addEventListener('change', (e) => {
+                showParticles = e.target.checked;
+            });
+            document.getElementById('toggleContours').addEventListener('change', (e) => {
+                showContours = e.target.checked;
+            });
+
+            // ============================================================================
+            // 10. CANVAS POINTER INTERACTION (CREATE POLLUTION SOURCE vs MOVE STATION)
+            // ============================================================================
+            simCanvas.addEventListener('pointerdown', (e) => {
+                const rect = simCanvas.getBoundingClientRect();
+                const px = e.clientX - rect.left;
+                const py = e.clientY - rect.top;
+
+                camera3D.isDragging = true;
+                camera3D.lastX = px;
+                camera3D.lastY = py;
+                camera3D.dragDistance = 0;
+            });
+
+            window.addEventListener('pointermove', (e) => {
+                if (!camera3D.isDragging) return;
+                const rect = simCanvas.getBoundingClientRect();
+                const px = e.clientX - rect.left;
+                const py = e.clientY - rect.top;
+                const dx = px - camera3D.lastX;
+                const dy = py - camera3D.lastY;
+                camera3D.dragDistance += Math.hypot(dx, dy);
+
+                if (viewMode === '3D' && !isSourcePlaceMode) {
+                    camera3D.yaw += dx * 0.008;
+                    camera3D.pitch = Math.min(1.25, Math.max(0.22, camera3D.pitch + dy * 0.006));
+                }
+
+                camera3D.lastX = px;
+                camera3D.lastY = py;
+            });
+
+            simCanvas.addEventListener('pointerup', (e) => {
+                const wasClick = camera3D.dragDistance < 6;
+                camera3D.isDragging = false;
+                if (!wasClick) return;
+
+                const rect = simCanvas.getBoundingClientRect();
+                const px = e.clientX - rect.left;
+                const py = e.clientY - rect.top;
+
+                let gx, gy;
+                if (viewMode === '2D') {
+                    gx = Math.round((px / rect.width) * (NX - 1));
+                    gy = Math.round(((rect.height - py) / rect.height) * (NY - 1));
+                } else {
+                    const floorPt = unproject3DFloor(px, py, simCanvas.width, simCanvas.height);
+                    gx = floorPt.x;
+                    gy = floorPt.y;
+                }
+
+                gx = Math.min(NX - 3, Math.max(2, gx));
+                gy = Math.min(NY - 3, Math.max(2, gy));
+
+                const nearLm = findNearestLandmark(gx, gy);
+
+                if (isSourcePlaceMode) {
+                    const newLabel = `Nguồn #${sources.length + 1} (${nearLm.name})`;
+                    sources.push({
+                        x: gx,
+                        y: gy,
+                        power: params.S0,
+                        label: newLabel
+                    });
+                    C[gy * NX + gx] = Math.min(MAX_CONCENTRATION, C[gy * NX + gx] + params.S0 * 0.65);
+                    updateSourceCountUI();
+                    showToast(`🏭 Đã tạo ${newLabel} với công suất ${params.S0} µg/m³·s`);
+                } else {
+                    station.x = gx;
+                    station.y = gy;
+                    updateStationBadgeUI();
+                    showToast(`📡 Đã dời Trạm quan trắc AQI tới khu vực ${nearLm.name}`);
+                }
+            });
+
+            // ============================================================================
+            // 11. MAIN SIMULATION & ANALYTICS LOOP
+            // ============================================================================
+            let frameCounter = 0;
+
+            function updateAnalyticsUI() {
+                let maxC = 0;
+                let sumC = 0;
+                const totalCells = NX * NY;
+                for (let i = 0; i < totalCells; i++) {
+                    const val = C[i];
+                    if (val > maxC) maxC = val;
+                    sumC += val;
+                }
+                const meanC = sumC / totalCells;
+
+                document.getElementById('domainMaxVal').textContent = `${maxC.toFixed(1)} µg/m³`;
+                document.getElementById('domainMeanVal').textContent = `${meanC.toFixed(1)} µg/m³`;
+
+                const stVal = sampleConcentration(station.x, station.y);
+                smoothedStationVal = historySmooth.length === 0
+                    ? stVal
+                    : 0.88 * smoothedStationVal + 0.12 * stVal;
+
+                historyInstant.push(stVal);
+                historySmooth.push(smoothedStationVal);
+                if (historyInstant.length > MAX_HISTORY) {
+                    historyInstant.shift();
+                    historySmooth.shift();
+                }
+
+                document.getElementById('stationPmValue').textContent = stVal.toFixed(1);
+                const noiseDiff = Math.abs(stVal - smoothedStationVal);
+                document.getElementById('stationNoiseDelta').textContent = `Dao động σdW: ±${noiseDiff.toFixed(1)}`;
+
+                const aqi = getAqiInfo(stVal);
+                const aqiBadge = document.getElementById('stationAqiBadge');
+                aqiBadge.textContent = aqi.label;
+                aqiBadge.className = `inline-block px-3 py-1 rounded-lg text-xs font-bold border ${aqi.badgeClass}`;
+                document.getElementById('stationHealthAdvice').textContent = aqi.advice;
+
+                renderLineChart();
+            }
+
+            function animate() {
+                const rect = simCanvas.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0) {
+                    if (simCanvas.width !== Math.floor(rect.width) || simCanvas.height !== Math.floor(rect.height)) {
+                        simCanvas.width = Math.floor(rect.width);
+                        simCanvas.height = Math.floor(rect.height);
+                        if (hcmMap) {
+                            hcmMap.invalidateSize();
+                            hcmMap.fitBounds([[LAT_MIN, LON_MIN], [LAT_MAX, LON_MAX]], { animate: false, padding: [0, 0] });
+                        }
+                    }
+
+                    if (isRunning) {
+                        stepSPDE(0.08);
+                        frameCounter++;
+                        if (frameCounter % 2 === 0) {
+                            updateAnalyticsUI();
+                        }
+                    }
+
+                    if (viewMode === '2D') {
+                        render2D(simCanvas.width, simCanvas.height);
+                    } else {
+                        render3D(simCanvas.width, simCanvas.height);
+                    }
+                }
+
+                requestAnimationFrame(animate);
+            }
+
+            window.onload = function () {
+                initLeafletMap();
+                renderDustQuiz();
+                updateSourceModeUI();
+                loadPreset('industrial');
+                updateAnalyticsUI();
+                animate();
+            };
+        })();
+    </script>
+</body>
+</html>

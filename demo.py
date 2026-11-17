@@ -9,8 +9,8 @@ st.set_page_config(layout="wide", page_title="Hệ thống Mô phỏng")
 
 st.title("Tổng hợp các Mô phỏng bằng Streamlit")
 
-# Tạo 3 Tabs trong Streamlit
-tab1, tab2, tab3 = st.tabs(["🍳 Mô phỏng Cooking", "🍺 Mô phỏng Drunk", "🛢️ Mô phỏng Oil"])
+# Tạo 4 Tabs trong Streamlit
+tab1, tab2, tab3, tab4 = st.tabs(["🍳 Mô phỏng Cooking", "🍺 Mô phỏng Drunk", "🛢️ Mô phỏng Oil", "🌫️ Bụi mịn TP.HCM (Dust)"])
 
 # Hàm dùng để đọc và hiển thị file HTML
 def load_local_html(file_name):
@@ -40,4 +40,8 @@ with tab2:
 with tab3:
     st.header("Mô phỏng Oil")
     # Thay tên file tại đây
-    load_local_html('oil.html')
+    load_local_html('Oil.html')
+
+with tab4:
+    st.header("Mô phỏng Phát tán Bụi mịn PM2.5 tại TP.HCM")
+    load_local_html('Dust.html')

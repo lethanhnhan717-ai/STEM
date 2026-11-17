@@ -114,6 +114,24 @@ LESSON_REGISTRY = {
         "correct_answers": {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
         "topics": {1: "Áp thấp nhiệt đới", 2: "Nhiễu ngẫu nhiên", 3: "Quỹ đạo bão", 4: "Nhiệt độ nước biển", 5: "Độ lệch chuẩn"},
         "sample_notes": {}
+    },
+    "dust": {
+        "id": "dust",
+        "title": "Mô Phỏng Phát Tán Bụi Mịn PM2.5 Tại TP.HCM (Dust SPDE)",
+        "short_title": "Bụi Mịn TP.HCM (Dust)",
+        "icon": "🌫️",
+        "badge": "Khí Quyển Đô Thị & Bản Đồ GIS TP.HCM",
+        "teacher_page": "Dust.html",
+        "student_page": "Dust.html",
+        "correct_answers": {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+        "topics": {
+            1: "Đối lưu gió mùa tại TP.HCM",
+            2: "Khuếch tán xoáy rối & Nghịch nhiệt sáng sớm",
+            3: "Lắng đọng khô & Mưa rào rửa trôi",
+            4: "Nhiễu ngẫu nhiên khí quyển đô thị",
+            5: "Chồng chất đa nguồn phát thải"
+        },
+        "sample_notes": {}
     }
 }
 
